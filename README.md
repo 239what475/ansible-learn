@@ -20,6 +20,7 @@
 9. `05-group-vars-and-host-vars/README.md`
 10. `06-roles/README.md`
 11. `07-blocks-and-error-handling/README.md`
+12. `08-tags-and-check-mode/README.md`
 
 ## 目录说明
 
@@ -31,6 +32,7 @@
 - `05-group-vars-and-host-vars/`：第五章，学习 `group_vars`、`host_vars` 和变量覆盖关系
 - `06-roles/`：第六章，学习 role 的基本结构和使用方式
 - `07-blocks-and-error-handling/`：第七章，学习错误处理和 block / rescue / always
+- `08-tags-and-check-mode/`：第八章，学习 tags、选择性执行和 check mode
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -43,6 +45,7 @@
 - 然后进入 `05-group-vars-and-host-vars/`
 - 然后进入 `06-roles/`
 - 然后进入 `07-blocks-and-error-handling/`
+- 然后进入 `08-tags-and-check-mode/`
 
 ## 文件约定
 

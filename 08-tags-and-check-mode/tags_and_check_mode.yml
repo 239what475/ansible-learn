@@ -1,0 +1,117 @@
+- name: Learn tags and check mode on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这一章主要演示执行控制，不需要 root 权限。
+  gather_facts: false
+
+  vars:
+    # 这里准备一个目录和两个文件路径，用来演示标签和 dry-run。
+    demo_dir: /home/ubuntu/ansible-tags-demo
+    config_file: /home/ubuntu/ansible-tags-demo/app.conf
+    report_file: /home/ubuntu/ansible-tags-demo/summary.txt
+    # `demo_message` 只是一个普通变量；你也可以在命令行里用 `-e demo_message=...` 临时覆盖它。
+    # 这样再配合 `--check --diff`，就更容易观察配置文件会发生什么变化。
+    demo_message: managed by ansible
+
+  tasks:
+    - name: Show current execution mode
+      # `tags:` 可以先理解成给任务贴标签。
+      # 它本身不会改变任务逻辑，但你可以在命令行里用 `--tags` / `--skip-tags` 按标签挑选任务。
+      # 如果你什么参数都不带直接执行 playbook，Ansible 通常会照常考虑所有任务；不会因为写了 `tags` 就自动跳过。
+      # 一个任务也可以同时带多个标签；只要命中其中任意一个，这个任务通常就会被执行。
+      # `always` 是一个特殊标签：即使你执行 `--tags config`，这条任务通常也会一起运行。
+      # `ansible_check_mode` 是一个内置变量；用 `--check` 时它会变成 true。
+      ansible.builtin.debug:
+        msg:
+          - "ansible_check_mode = {{ ansible_check_mode }}"
+          - "tip = 用 --tags config 只跑配置任务；用 --skip-tags report 跳过报告任务。"
+      tags:
+        - always
+
+    - name: Ensure demo directory exists
+      # `setup` 这个标签用来表示环境准备类任务。
+      # `state: directory` 表示这里最终应该是目录：不存在就创建，存在但属性不对就调整。
+      ansible.builtin.file:
+        path: "{{ demo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      tags:
+        - setup
+
+    - name: Write demo config file
+      # `config` 标签用来标记配置类任务。
+      # `copy` 模块支持 `--check`；在 dry-run 模式下，它会尽量预测“如果真的执行，会不会改动文件”。
+      # 如果再配合 `--diff`，Ansible 还会展示文件内容的差异。
+      ansible.builtin.copy:
+        dest: "{{ config_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          app_name = ansible-learn
+          lesson = 08-tags-and-check-mode
+          inventory_hostname = {{ inventory_hostname }}
+          message = {{ demo_message }}
+      tags:
+        - config
+
+    - name: Write summary file
+      # `report` 标签用来标记报告或输出类任务。
+      # 这条任务和上面的 `config` 任务一样，也能配合 `--check --diff` 观察预期改动。
+      ansible.builtin.copy:
+        dest: "{{ report_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          config_file = {{ config_file }}
+          report_file = {{ report_file }}
+          demo_message = {{ demo_message }}
+      tags:
+        - report
+
+    - name: Explain why read tasks are skipped in check mode
+      # `--check` 的意思是“尽量预演”，并不真正创建或修改文件。
+      # 所以下面这些读取文件的任务在 check mode 里通常不适合执行，否则文件可能还不存在。
+      # 这条任务在普通运行时会显示为 skipped，不是因为 `tags`，而是因为它写了 `when: ansible_check_mode`。
+      # 普通运行时 `ansible_check_mode = false`，条件不成立，所以它被跳过。
+      ansible.builtin.debug:
+        msg: "当前是 --check 模式：写文件任务只做预演，不真正落地；所以下面的读取任务会被跳过。"
+      when: ansible_check_mode
+      tags:
+        - always
+
+    - name: Read config file after normal run
+      # 这条任务只在正常执行时运行；如果是 `--check`，就跳过。
+      ansible.builtin.command: cat {{ config_file }}
+      register: config_result
+      changed_when: false
+      when: not ansible_check_mode
+      tags:
+        - config
+
+    - name: Show config file lines
+      # `stdout_lines` 会把标准输出按换行拆成列表，比直接看整段 `stdout` 更容易阅读。
+      ansible.builtin.debug:
+        var: config_result.stdout_lines
+      when: not ansible_check_mode
+      tags:
+        - config
+
+    - name: Read summary file after normal run
+      ansible.builtin.command: cat {{ report_file }}
+      register: report_result
+      changed_when: false
+      when: not ansible_check_mode
+      tags:
+        - report
+
+    - name: Show summary file lines
+      ansible.builtin.debug:
+        var: report_result.stdout_lines
+      when: not ansible_check_mode
+      tags:
+        - report
