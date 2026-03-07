@@ -1,0 +1,18 @@
+# 这是模板文件，请先复制为 inventory.yml 再按真实环境修改。
+all:
+  # `vars` 放这一组主机共享的连接参数。
+  vars:
+    ansible_connection: ssh
+    ansible_user: your-user
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  # `children` 用来定义子组，方便后面按组执行 playbook。
+  children:
+    incus_nodes:
+      # `hosts` 下面列出具体主机；每台主机可以有自己的变量。
+      hosts:
+        node1:
+          ansible_host: 192.0.2.11
+        node2:
+          ansible_host: 192.0.2.12

@@ -1,0 +1,18 @@
+- name: Verify Ansible can reach Incus nodes
+  # `hosts` 指定这次 play 要作用到哪一组主机。
+  hosts: incus_nodes
+
+  # 这里先不采集 facts，只验证 SSH 和 Ansible 模块是否可用。
+  gather_facts: false
+
+  tasks:
+    - name: Ping managed hosts
+      ansible.builtin.ping:
+
+    - name: Show current target information
+      # 这里顺手打印几个最常见的上下文变量，方便理解 inventory 是怎么生效的。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "ansible_host = {{ ansible_host }}"
+          - "ansible_user = {{ ansible_user }}"

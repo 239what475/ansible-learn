@@ -1,0 +1,36 @@
+- name: Install common packages on Incus nodes
+  hosts: incus_nodes
+
+  # `become: true` 表示通过 sudo 提权执行后面的任务。
+  become: true
+  gather_facts: true
+
+  vars:
+    # `vars` 用来定义可复用数据，后面会配合 loop 一起使用。
+    common_packages:
+      - curl
+      - git
+      - tree
+      - vim
+
+  tasks:
+    - name: Refresh apt package index
+      # `ansible.builtin.apt` 是 Ubuntu / Debian 系常用模块。
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      # `notify` 会在任务发生变更时触发对应 handler。
+      notify: Report apt cache refresh
+
+    - name: Install common packages
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+      # `loop` 会把 common_packages 里的每一项依次交给当前任务处理。
+      loop: "{{ common_packages }}"
+
+  handlers:
+    # `handlers` 只有在被 notify 触发时才会执行。
+    - name: Report apt cache refresh
+      ansible.builtin.debug:
+        msg: "APT cache was refreshed on {{ inventory_hostname }}"
