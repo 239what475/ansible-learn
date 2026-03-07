@@ -16,6 +16,7 @@
 5. `01-quickstart/README.md`
 6. `02-common-modules/README.md`
 7. `03-variables-and-facts/README.md`
+8. `04-conditions-loops-templates/README.md`
 
 ## 目录说明
 
@@ -23,6 +24,7 @@
 - `01-quickstart/`：第一章，跑通最小可用的 `Ansible + Incus` 实验环境
 - `02-common-modules/`：第二章，学习常用模块和幂等性
 - `03-variables-and-facts/`：第三章，学习变量、facts、`register` 和 `debug`
+- `04-conditions-loops-templates/`：第四章，学习 `when`、`loop` 和 `template`
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -31,6 +33,7 @@
 - 再进入 `01-quickstart/`
 - 然后进入 `02-common-modules/`
 - 接着进入 `03-variables-and-facts/`
+- 然后进入 `04-conditions-loops-templates/`
 
 ## 文件约定
 

@@ -20,8 +20,9 @@
   tasks:
     - name: Refresh apt package index
       # `ansible.builtin.apt` 是 Ubuntu / Debian 系常用模块。
+      # 这里说的 cache 指的是目标主机上 apt 自己的软件包索引缓存，不是 Ansible 的缓存。
       # `update_cache: true` 类似执行 apt update。
-      # `cache_valid_time: 3600` 表示缓存一小时内有效，避免每次都重复刷新。
+      # `cache_valid_time: 3600` 表示 apt 索引一小时内有效，避免每次都重复刷新。
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600

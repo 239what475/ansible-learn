@@ -1,0 +1,96 @@
+- name: Learn conditions loops and templates on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这里通过 sudo 提权，因为后面会安装软件包并写入系统范围外的文件。
+  become: true
+  # 模板里会用到系统信息，所以这里先开启 facts。
+  gather_facts: true
+
+  vars:
+    # `vars` 适合放当前 play 里会重复使用的固定值。
+    lesson_name: 04-conditions-loops-templates
+    report_dir: /home/ubuntu/ansible-template-demo
+    report_file: /home/ubuntu/ansible-template-demo/lesson-report.txt
+    # 这一组包主要用来演示 `loop` 和 `item`。
+    demo_packages:
+      - tree
+      - jq
+    # 这一组数据不会真正创建用户，只用来演示模板里的循环渲染。
+    demo_users:
+      - name: ubuntu
+        shell: /bin/bash
+      - name: nobody
+        shell: /usr/sbin/nologin
+
+  tasks:
+    - name: Ensure report directory exists
+      # `file` 模块用来创建目录，并保证 owner、group、mode 满足要求。
+      ansible.builtin.file:
+        path: "{{ report_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Install packages on Debian family
+      # `loop` 会让当前任务对列表里的每个元素各执行一次。
+      # 在循环体里，当前元素默认放在变量 `item` 里。
+      # `when` 会对每一次循环单独判断；条件为真时当前这一轮才会执行。
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      loop: "{{ demo_packages }}"
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Show current loop items
+      # `debug + loop` 是观察 `item` 最直接的方式。
+      # 入门时可以把 `debug` 先理解成 Ansible 里的 print。
+      # 但它比普通 print 更灵活：例如还可以配合 `verbosity`，只在 `-v` / `-vv` / `-vvv` 时显示。
+      ansible.builtin.debug:
+        msg: "current item = {{ item }}"
+      loop: "{{ demo_packages }}"
+      changed_when: false
+
+    - name: Show loop items only in verbose mode
+      # `verbosity: 1` 表示这条 debug 默认不显示，只有带 `-v` 或更高详细级别时才显示。
+      # 你可以试试：`uv run ansible-playbook conditions_loops_templates.yml -l node1 -v`
+      # 这里要区分两件事：
+      # 1. `verbosity` 只控制这条 debug 任务什么时候显示。
+      # 2. `-v` / `-vv` / `-vvv` 还会让 Ansible 自己输出更多运行细节，所以终端里不只会多出这一条 debug。
+      ansible.builtin.debug:
+        msg: "verbose item = {{ item }}"
+        verbosity: 1
+      loop: "{{ demo_packages }}"
+      changed_when: false
+
+    - name: Render lesson report from template
+      # `template` 模块会先读取 `src` 指向的 `.j2` 模板，
+      # 再把里面的变量表达式和控制语句渲染成最终文件。
+      # `src` 指向的是控制端上的模板文件，`dest` 指向的是目标主机上的最终文件。
+      # 这里没有像 apt 那样的独立缓存；每次执行时都会重新按当前变量和 facts 渲染模板。
+      # 但如果这次渲染出来的结果和目标文件内容相同，Ansible 通常会显示为 `ok` 而不是 `changed`。
+      ansible.builtin.template:
+        src: templates/lesson_report.j2
+        dest: "{{ report_file }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    - name: Read rendered report
+      # 这里读取模板渲染后的结果，方便马上核对输出内容。
+      ansible.builtin.command: cat {{ report_file }}
+      register: report_content
+      changed_when: false
+
+    - name: Show rendered report lines
+      # `stdout_lines` 会把标准输出按行拆开，阅读起来更直观。
+      ansible.builtin.debug:
+        var: report_content.stdout_lines
+
+    - name: Run only on Ubuntu
+      # `when` 也可以不用配合 loop，直接控制整条任务是否执行。
+      ansible.builtin.debug:
+        msg: "当前节点是 Ubuntu，所以模板里的 Ubuntu 分支和这条任务都会生效。"
+      when: ansible_facts['distribution'] == 'Ubuntu'

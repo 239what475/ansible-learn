@@ -1,0 +1,28 @@
+{#
+这是一个 Jinja 模板文件，通常配合 `ansible.builtin.template` 使用。
+`{{ ... }}` 用来输出变量值。
+`{% ... %}` 用来写控制语句，比如 if / for。
+模板本身放在控制端，Ansible 会在执行时根据当前变量先渲染，再把结果写到目标主机。
+所以这里更像“每次重新生成目标文件”，而不是维护一份单独的模板缓存。
+#}
+lesson_name = {{ lesson_name }}
+inventory_hostname = {{ inventory_hostname }}
+ansible_host = {{ ansible_host }}
+distribution = {{ ansible_facts["distribution"] }}
+os_family = {{ ansible_facts["os_family"] }}
+
+{% if ansible_facts["distribution"] == "Ubuntu" %}
+platform_message = this node is ubuntu
+{% else %}
+platform_message = this node is not ubuntu
+{% endif %}
+
+packages:
+{% for package in demo_packages %}
+- {{ package }}
+{% endfor %}
+
+users:
+{% for user in demo_users %}
+- name = {{ user.name }}, shell = {{ user.shell }}
+{% endfor %}

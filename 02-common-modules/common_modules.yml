@@ -42,6 +42,7 @@
 
     - name: Install extra packages
       # `apt` 模块比直接写 shell 更符合 Ansible 风格，也更容易做到幂等。
+      # 这里说的 cache 指的是目标主机上 apt 自己的软件包索引缓存，不是 Ansible 的缓存。
       ansible.builtin.apt:
         name: "{{ item }}"
         # `present` 表示“确保这个包已经安装”，如果本来就装好了就不会重复安装。
