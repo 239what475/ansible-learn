@@ -1,0 +1,102 @@
+- name: Learn hostvars groups and set_fact on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    remote_demo_dir: /home/ubuntu/ansible-hostvars-demo
+    remote_fact_file: /home/ubuntu/ansible-hostvars-demo/fact.txt
+    controller_output_dir: "{{ playbook_dir }}/controller-output"
+    controller_summary_file: "{{ playbook_dir }}/controller-output/host-summary.txt"
+
+  tasks:
+    - name: Show groups and current host relationship
+      # `groups` 是一个很重要的内置变量。
+      # 例如 `groups['incus_nodes']` 表示 inventory 里 `incus_nodes` 这个组包含哪些主机名。
+      # `inventory_hostname` 则表示“当前这台主机在 inventory 里的名字”。
+      # 它不是实际连接地址；实际连接地址通常是 `ansible_host`。
+      # 这里先看“当前主机是谁”和“这个组里一共有谁”。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "groups['incus_nodes'] = {{ groups['incus_nodes'] | join(', ') }}"
+
+    - name: Build one custom fact on every host
+      # `set_fact` 可以理解成：给当前主机临时创建一个新变量。
+      # 这个变量后面的任务可以继续使用，也能通过 `hostvars[...]` 被别的主机上下文读取到。
+      # 你也可以把 `register` 先按同样思路理解：它默认也是按“当前主机上下文”保存结果，
+      # 不是整个 playbook 里所有主机共享一份全局变量。
+      ansible.builtin.set_fact:
+        custom_note: "host={{ inventory_hostname }} ip={{ ansible_host }}"
+
+    - name: Show local custom fact on each host
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "custom_note = {{ custom_note }}"
+
+    - name: Ensure remote demo directory exists
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Write one remote fact file on every host
+      ansible.builtin.copy:
+        dest: "{{ remote_fact_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          custom_note = {{ custom_note }}
+
+    - name: Ensure controller output directory exists locally
+      ansible.builtin.file:
+        path: "{{ controller_output_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Write one controller summary from all hostvars
+      # `hostvars` 可以理解成“按主机名索引的一整张变量表”。
+      # 例如 `hostvars['node1'].ansible_host` 表示：读取 node1 这台主机上下文里的变量。
+      # 如果某个变量是通过 `set_fact` 或 `register` 得到的，也同样是先记在各自主机上下文里，
+      # 然后再通过 `hostvars['主机名'].变量名` 这种方式跨主机读取。
+      # 这里因为用了 `run_once + delegate_to: localhost`，所以只在控制端汇总一次，但能读取所有主机的变量。
+      # `copy` 的 `content:` 虽然看起来像普通多行字符串，但里面同样支持 Jinja 模板语法。
+      # `{{ ... }}` 表示把一个变量或表达式的值直接写进文件。
+      # `{% for ... %}` / `{% endfor %}` 表示 Jinja 循环控制结构，不会原样写进文件里。
+      # 这里的 `groups['incus_nodes']` 是一个主机名列表，所以循环会先取到 node1，再取到 node2。
+      # `host_name` 是这个循环里临时起的变量名；每一轮分别代表当前正在处理的那台主机名。
+      # `hostvars[host_name]` 的意思是：先用主机名找到那台主机的变量表，再从里面取 `ansible_host`、`custom_note` 等字段。
+      # 所以如果当前这一轮 `host_name = node1`，下面两行就会渲染成：
+      # `node1.ansible_host = ...`
+      # `node1.custom_note = ...`
+      ansible.builtin.copy:
+        dest: "{{ controller_summary_file }}"
+        mode: '0644'
+        content: |
+          all_hosts = {{ groups['incus_nodes'] | join(', ') }}
+          {% for host_name in groups['incus_nodes'] %}
+          {{ host_name }}.ansible_host = {{ hostvars[host_name].ansible_host }}
+          {{ host_name }}.custom_note = {{ hostvars[host_name].custom_note }}
+          {% endfor %}
+      delegate_to: localhost
+      run_once: true
+
+    - name: Read controller summary file locally
+      ansible.builtin.command: cat {{ controller_summary_file }}
+      register: summary_result
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
+
+    - name: Show controller summary lines
+      # 这里最终能看到：虽然当前任务只执行一次，但它读到了所有主机的 `hostvars`。
+      ansible.builtin.debug:
+        var: summary_result.stdout_lines
+      run_once: true

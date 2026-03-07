@@ -95,6 +95,11 @@
       run_once: true
 
     - name: Read controller summary file locally
+      # 这里虽然真正执行 `cat` 的地点是 localhost，
+      # 但 `register` 默认仍然会把结果记在“当前主机上下文”里。
+      # 所以这一节里你看到的是 `node1 -> localhost`：
+      # - `localhost` 是命令实际执行的位置
+      # - `node1` 是保存 `controller_summary` 这份结果的主机上下文
       ansible.builtin.command: cat {{ controller_summary_file }}
       register: controller_summary
       changed_when: false
