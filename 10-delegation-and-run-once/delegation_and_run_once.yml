@@ -1,0 +1,108 @@
+- name: Learn delegation and run_once on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这一章主要演示任务执行位置，不需要 root 权限。
+  gather_facts: false
+
+  vars:
+    # 远程主机上的演示目录。
+    remote_demo_dir: /home/ubuntu/ansible-delegate-demo
+    remote_host_file: /home/ubuntu/ansible-delegate-demo/per-host.txt
+    remote_once_file: /home/ubuntu/ansible-delegate-demo/run-once.txt
+    # 控制端上的输出目录；这里用了 `playbook_dir`，所以文件会落在当前章节目录里。
+    controller_output_dir: "{{ playbook_dir }}/controller-output"
+    controller_summary_file: "{{ playbook_dir }}/controller-output/cluster-summary.txt"
+
+  tasks:
+    - name: Show normal execution behavior
+      # 默认情况下，一个任务会在每一台目标主机上各执行一次。
+      # 所以你在正常运行时，会看到 node1 和 node2 都各自输出一份结果。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "默认情况下，任务会在每台目标主机上各执行一次。"
+
+    - name: Ensure remote demo directory exists on every host
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Write one file on every remote host
+      # 这条任务没有 `run_once`，所以每台目标主机都会各写一份自己的文件。
+      ansible.builtin.copy:
+        dest: "{{ remote_host_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          type = per-host
+          inventory_hostname = {{ inventory_hostname }}
+
+    - name: Explain run_once behavior
+      # `run_once: true` 的意思是：这一条任务在当前 play 里只执行一次。
+      # 但要注意：它仍然是在“目标主机”上执行，只是通常只会挑当前批次里的第一台主机。
+      # 这里的“第一台”不是让你依赖的稳定选主机制：它会受 inventory 顺序、limit、serial 等因素影响。
+      # 所以 `run_once` 不等于“随机选一台”，也不等于“永远固定某一台”；它更像“当前这批主机里先处理到的那一台”。
+      # 如果你的 inventory 顺序、limit、serial 都没变，那你连续运行很多次时一直看到 node1，通常就是正常现象。
+      # 另外，每个带 `run_once` 的任务都是“各自选择一次”，不是说前一个任务选中了 node1，后面的 run_once 任务就永久绑定到 node1。
+      # 只是因为这一节里它们都处在同一个 play、面对同一批主机，所以结果看起来一致。
+      # `run_once` 也不等于“在控制端执行”。如果你想改成控制端执行，还需要 `delegate_to`。
+      ansible.builtin.debug:
+        msg:
+          - "run_once task is running on inventory_hostname = {{ inventory_hostname }}"
+          - "这里只会执行一次，但执行位置仍然是某一台目标主机。"
+      run_once: true
+
+    - name: Write one remote file only once
+      # 这里会只在一台目标主机上写入 `run-once.txt`。
+      ansible.builtin.copy:
+        dest: "{{ remote_once_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          type = run-once-on-remote-host
+          inventory_hostname = {{ inventory_hostname }}
+      run_once: true
+
+    - name: Ensure controller output directory exists locally
+      # `delegate_to: localhost` 的意思是：把这条任务委托给控制端本机执行。
+      # 再配合 `run_once: true`，就能实现“只在控制端执行一次”。
+      # 如果这里只有 `delegate_to: localhost` 而没有 `run_once`，那么它会在控制端重复执行多次：每个目标主机上下文都会来一次。
+      # 所以输出里的 `node1 -> localhost` 要拆开看：`node1` 是这次选中的主机上下文，`localhost` 才是真正执行命令的地方。
+      ansible.builtin.file:
+        path: "{{ controller_output_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Write one controller summary file locally
+      # 这条任务虽然写在面向 `incus_nodes` 的 play 里，但真正执行地点已经被改成了控制端本机。
+      # `ansible_play_hosts_all` 表示当前这个 play 里涉及到的所有目标主机名。
+      ansible.builtin.copy:
+        dest: "{{ controller_summary_file }}"
+        mode: '0644'
+        content: |
+          type = delegated-to-localhost
+          run_once_host = {{ inventory_hostname }}
+          managed_hosts = {{ ansible_play_hosts_all | join(', ') }}
+          host_count = {{ ansible_play_hosts_all | length }}
+      delegate_to: localhost
+      run_once: true
+
+    - name: Read controller summary file locally
+      ansible.builtin.command: cat {{ controller_summary_file }}
+      register: controller_summary
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
+
+    - name: Show controller summary lines
+      # 这里最终展示的是控制端本地文件内容，而不是远程主机上的文件内容。
+      ansible.builtin.debug:
+        var: controller_summary.stdout_lines
+      run_once: true

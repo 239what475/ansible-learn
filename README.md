@@ -22,6 +22,7 @@
 11. `07-blocks-and-error-handling/README.md`
 12. `08-tags-and-check-mode/README.md`
 13. `09-imports-and-includes/README.md`
+14. `10-delegation-and-run-once/README.md`
 
 ## 目录说明
 
@@ -35,6 +36,7 @@
 - `07-blocks-and-error-handling/`：第七章，学习错误处理和 block / rescue / always
 - `08-tags-and-check-mode/`：第八章，学习 tags、选择性执行和 check mode
 - `09-imports-and-includes/`：第九章，学习 import_tasks 和 include_tasks
+- `10-delegation-and-run-once/`：第十章，学习 delegate_to 和 run_once
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -49,6 +51,7 @@
 - 然后进入 `07-blocks-and-error-handling/`
 - 然后进入 `08-tags-and-check-mode/`
 - 然后进入 `09-imports-and-includes/`
+- 然后进入 `10-delegation-and-run-once/`
 
 ## 文件约定
 
