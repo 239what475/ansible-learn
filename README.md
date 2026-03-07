@@ -23,6 +23,7 @@
 12. `08-tags-and-check-mode/README.md`
 13. `09-imports-and-includes/README.md`
 14. `10-delegation-and-run-once/README.md`
+15. `11-serial-and-batches/README.md`
 
 ## 目录说明
 
@@ -37,6 +38,7 @@
 - `08-tags-and-check-mode/`：第八章，学习 tags、选择性执行和 check mode
 - `09-imports-and-includes/`：第九章，学习 import_tasks 和 include_tasks
 - `10-delegation-and-run-once/`：第十章，学习 delegate_to 和 run_once
+- `11-serial-and-batches/`：第十一章，学习 serial、批次和 run_once 的批次行为
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -52,6 +54,7 @@
 - 然后进入 `08-tags-and-check-mode/`
 - 然后进入 `09-imports-and-includes/`
 - 然后进入 `10-delegation-and-run-once/`
+- 然后进入 `11-serial-and-batches/`
 
 ## 文件约定
 

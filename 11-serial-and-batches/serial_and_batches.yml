@@ -1,0 +1,93 @@
+- name: Learn serial and batches on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # `serial: 1` 表示一次只处理 1 台主机。
+  # 所以两台主机会被拆成两批：第一批先跑一台，跑完再进入第二批。
+  serial: 1
+  gather_facts: false
+
+  vars:
+    remote_demo_dir: /home/ubuntu/ansible-serial-demo
+    remote_batch_file: /home/ubuntu/ansible-serial-demo/batch.txt
+    controller_output_dir: "{{ playbook_dir }}/controller-output"
+    controller_batch_log: "{{ playbook_dir }}/controller-output/batch-log.txt"
+
+  tasks:
+    - name: Show current batch information
+      # `ansible_play_hosts_all` 表示这个 play 涉及到的全部主机。
+      # `ansible_play_batch` 表示“当前这一批”里的主机。
+      # 因为这里用了 `serial: 1`，所以当前批次里通常只有一台主机。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "ansible_play_hosts_all = {{ ansible_play_hosts_all | join(', ') }}"
+          - "ansible_play_batch = {{ ansible_play_batch | join(', ') }}"
+
+    - name: Ensure remote batch demo directory exists
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Write one batch file on current host
+      # 这条任务没有 `run_once`，所以每一批里的当前主机都会执行一次。
+      ansible.builtin.copy:
+        dest: "{{ remote_batch_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          ansible_play_batch = {{ ansible_play_batch | join(', ') }}
+
+    - name: Explain run_once inside serial batches
+      # 这里是这一章最关键的点：
+      # `run_once: true` 不是“整个 play 永远只执行一次”，而是“对当前批次只执行一次”。
+      # 因为这里有两批，所以你会看到这条任务在第一批执行一次，在第二批再执行一次。
+      ansible.builtin.debug:
+        msg:
+          - "run_once inventory_hostname = {{ inventory_hostname }}"
+          - "current batch = {{ ansible_play_batch | join(', ') }}"
+      run_once: true
+
+    - name: Ensure controller output directory exists locally per batch
+      # 这一条又同时用了 `delegate_to: localhost` 和 `run_once: true`。
+      # 这意味着：每一批只在控制端执行一次；因为总共有两批，所以整个 play 里会执行两次。
+      ansible.builtin.file:
+        path: "{{ controller_output_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Append one controller log line per batch
+      # `lineinfile` 的 `create: true` 表示文件不存在时先创建。
+      # 这里每一批都会在控制端追加一行，所以最终你会得到两行记录。
+      ansible.builtin.lineinfile:
+        path: "{{ controller_batch_log }}"
+        line: "batch_host={{ inventory_hostname }} batch_members={{ ansible_play_batch | join(',') }}"
+        create: true
+        mode: '0644'
+      delegate_to: localhost
+      run_once: true
+
+- name: Read final controller batch log
+  # 前一个 play 已经把所有批次都跑完了；这里单独开一个 localhost play 来看最终结果。
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    controller_batch_log: "{{ playbook_dir }}/controller-output/batch-log.txt"
+
+  tasks:
+    - name: Read controller batch log
+      ansible.builtin.command: cat {{ controller_batch_log }}
+      register: batch_log_result
+      changed_when: false
+
+    - name: Show controller batch log lines
+      # 这里最终应该能看到两行：一行来自 node1 那一批，一行来自 node2 那一批。
+      ansible.builtin.debug:
+        var: batch_log_result.stdout_lines
