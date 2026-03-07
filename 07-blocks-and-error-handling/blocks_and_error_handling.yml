@@ -1,0 +1,114 @@
+- name: Learn blocks and error handling on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这一章主要演示控制流程，不需要 root 权限。
+  gather_facts: false
+
+  vars:
+    # 这里准备一个目录和文件路径，用来把错误处理结果写下来。
+    report_dir: /home/ubuntu/ansible-error-demo
+    report_file: /home/ubuntu/ansible-error-demo/result.txt
+
+  tasks:
+    - name: Ensure report directory exists
+      # `state: directory` 表示这里最终应该是一个目录：如果不存在就创建，存在但属性不对就调整。
+      ansible.builtin.file:
+        path: "{{ report_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Check os-release with custom failure rule
+      # `failed_when` 用来自己定义“什么情况下算失败”。
+      # 它控制的是任务会不会被记成 failed，不是控制 changed。
+      # 这条命令本身只要能成功执行，返回码通常就是 0。
+      # 但这里我们额外要求输出里必须包含 Ubuntu，才算真正成功。
+      ansible.builtin.command: cat /etc/os-release
+      register: os_release_info
+      changed_when: false
+      failed_when: "'Ubuntu' not in os_release_info.stdout"
+
+    - name: Try to read an optional file
+      # 这个例子是故意设计成会失败的，因为 `/tmp/ansible-optional-file` 默认并不存在。
+      # `ignore_errors: true` 表示这条任务即使失败，也不要让整个 play 立即停下来。
+      # 它适合那些“失败了也想继续往下看”的实验性或可选性任务。
+      # `changed_when: false` 的意思不是“每次都失败”，而是“这条任务不应被记成 changed”。
+      # 也就是说：失败与否看命令本身；要不要继续看 `ignore_errors`；算不算 changed 才看 `changed_when`。
+      ansible.builtin.command: cat /tmp/ansible-optional-file
+      register: optional_file_result
+      changed_when: false
+      ignore_errors: true
+
+    - name: Show ignored task result
+      # 被 ignore 的任务虽然不会中断 play，但它的结果仍然会被保存到 register 变量里。
+      # 所以后面如果看到 `optional_file_result.failed = True`，意思是“这个任务确实执行了，而且失败结果被保存下来了”，
+      # 不是“这个变量没有结果”。
+      # 这里的 `| default(...)` 是 Jinja 过滤器，意思是：如果前面的值不存在，就用默认值代替。
+      # 它不是 Shell 管道，而是模板表达式里的“兜底值”写法。
+      ansible.builtin.debug:
+        msg:
+          - "optional_file_result.failed = {{ optional_file_result.failed | default(false) }}"
+          - "optional_file_result.rc = {{ optional_file_result.rc | default('n/a') }}"
+          - "optional_file_result.stderr = {{ optional_file_result.stderr | default('') }}"
+
+    - name: Demonstrate block rescue always
+      # `block` 适合把一组相关任务放在一起处理。
+      # 可以先把它类比成很多语言里的 `try / catch / finally`：
+      # - `block` 类似 try
+      # - `rescue` 类似 catch
+      # - `always` 类似 finally
+      # `rescue` 可以直译成“补救”或“补救处理”：如果 block 里的任务失败了，就进入这里执行失败后的处理逻辑。
+      # 无论成功还是失败，`always` 里的任务都会执行。
+      block:
+        - name: Check a required file that should be missing
+          # 这里故意检查一个不存在的文件，用来触发失败流程。
+          # `test` 是 Shell 里的条件判断命令；`-f` 表示“这个路径存在，而且是普通文件”。
+          # 所以这条命令在文件不存在时会返回非 0，也就会让当前任务失败。
+          ansible.builtin.command: test -f /tmp/ansible-required-file
+          register: required_file_check
+          changed_when: false
+
+        - name: This task only runs when previous block tasks succeed
+          ansible.builtin.debug:
+            msg: "如果你能看到这条消息，说明前面的检查没有失败。"
+
+      rescue:
+        - name: Explain why rescue is running
+          # `rescue` 会在 block 失败后执行，所以这里最适合做补救动作或记录信息。
+          ansible.builtin.debug:
+            msg: "进入 rescue：因为 /tmp/ansible-required-file 不存在。"
+
+        - name: Write rescue summary file
+          # 这里同样用了 `| default(...)`，避免某个字段不存在时连补救文件都写不出来。
+          ansible.builtin.copy:
+            dest: "{{ report_file }}"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            content: |
+              inventory_hostname = {{ inventory_hostname }}
+              os_release_check = passed
+              optional_file_failed = {{ optional_file_result.failed | default(false) }}
+              required_file_check_rc = {{ required_file_check.rc | default('n/a') }}
+              rescue_status = rescue was triggered
+
+      always:
+        - name: Read result file if rescue created it
+          # `always` 无论 block 成功还是失败都会执行。
+          # 这里继续配合 `ignore_errors`，避免因为文件尚未创建而中断这一节的演示。
+          ansible.builtin.command: cat {{ report_file }}
+          register: rescue_report
+          changed_when: false
+          ignore_errors: true
+
+        - name: Show always section result
+          # `stdout` 是一整段字符串；里面原本的换行在 debug 输出里经常会显示成 `\n` 这样的转义形式。
+          # 这不代表内容错了，只是因为 Ansible 在按“字符串字面量”的方式展示它。
+          # 如果想更容易阅读，通常可以改看 `stdout_lines`；它会把输出按换行拆成列表。
+          ansible.builtin.debug:
+            msg:
+              - "always_ran = true"
+              - "rescue_report_failed = {{ rescue_report.failed | default(false) }}"
+              - "rescue_report_stdout = {{ rescue_report.stdout | default('') }}"
+              - "rescue_report_stdout_lines = {{ rescue_report.stdout_lines | default([]) }}"
