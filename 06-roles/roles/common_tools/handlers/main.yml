@@ -1,0 +1,6 @@
+# `handlers/main.yml` 里的任务只有在被 `notify` 触发时才会执行。
+# 可以把它理解成 role 里的“延后动作”：前面的 tasks 先做修改，最后再决定要不要执行这里的任务。
+# 同一个 handler 在一个 play 里即使被多次 notify，通常最后也只会执行一次。
+- name: Report role template update
+  ansible.builtin.debug:
+    msg: "common_tools role updated files on {{ inventory_hostname }}"

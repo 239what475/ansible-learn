@@ -1,0 +1,8 @@
+# `defaults/main.yml` 用来放 role 自带的默认变量。
+# 这些值通常优先级比较低，后面如果有 `group_vars` / `host_vars` / play vars，同名变量可以覆盖它们。
+common_tools_packages:
+  - tree
+  - jq
+common_tools_report_dir: /home/ubuntu/ansible-role-demo
+common_tools_report_file: /home/ubuntu/ansible-role-demo/common-tools-report.txt
+common_tools_message: from role defaults

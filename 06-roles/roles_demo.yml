@@ -1,0 +1,26 @@
+- name: Learn roles on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # role 里会安装软件包并写文件，所以这里打开 become。
+  become: true
+  # 模板里会用到系统信息，所以先开启 facts。
+  gather_facts: true
+
+  roles:
+    # `role` 可以先理解成：把一组相关的 Ansible 内容打包成一个有固定目录结构的功能模块。
+    # 它本身不是新语法能力，而是把前面学过的内容按约定组织起来，例如：
+    # - `defaults/` 放默认变量
+    # - `tasks/` 放任务
+    # - `handlers/` 放被 notify 触发的任务
+    # - `templates/` 放模板文件
+    # 当这里写 `common_tools` 时，Ansible 会去 `roles/common_tools/` 目录下找这些内容。
+    # 你可以先把执行流程理解成这样：
+    # 1. playbook 里写 `roles: - role: common_tools`
+    # 2. Ansible 进入 `roles/common_tools/`
+    # 3. 先读 `defaults/main.yml` 里的默认变量
+    # 4. 再执行 `tasks/main.yml` 里的任务
+    # 5. 任务里如果用了模板，就去 `templates/` 里找文件
+    # 6. 任务里如果 `notify` 了某个 handler，最后再去执行 `handlers/main.yml` 里的对应任务
+    # 所以 role 的核心价值不是“多做一件新事情”，而是“把已经学过的东西组织得更清楚、更容易复用”。
+    # 这一章只演示一个最小 role：`common_tools`。
+    - role: common_tools

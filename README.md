@@ -18,6 +18,7 @@
 7. `03-variables-and-facts/README.md`
 8. `04-conditions-loops-templates/README.md`
 9. `05-group-vars-and-host-vars/README.md`
+10. `06-roles/README.md`
 
 ## 目录说明
 
@@ -27,6 +28,7 @@
 - `03-variables-and-facts/`：第三章，学习变量、facts、`register` 和 `debug`
 - `04-conditions-loops-templates/`：第四章，学习 `when`、`loop` 和 `template`
 - `05-group-vars-and-host-vars/`：第五章，学习 `group_vars`、`host_vars` 和变量覆盖关系
+- `06-roles/`：第六章，学习 role 的基本结构和使用方式
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -37,6 +39,7 @@
 - 接着进入 `03-variables-and-facts/`
 - 然后进入 `04-conditions-loops-templates/`
 - 然后进入 `05-group-vars-and-host-vars/`
+- 然后进入 `06-roles/`
 
 ## 文件约定
 

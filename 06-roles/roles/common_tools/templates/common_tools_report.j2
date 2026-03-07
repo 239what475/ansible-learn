@@ -1,0 +1,13 @@
+{#
+这是 role 自己的模板文件。
+role 不只是能放 tasks，还可以有自己的 defaults、handlers、templates。
+当前这个模板就是被 `tasks/main.yml` 里的 `ansible.builtin.template` 调用的。
+#}
+lesson = 06-roles
+inventory_hostname = {{ inventory_hostname }}
+distribution = {{ ansible_facts["distribution"] }}
+common_tools_message = {{ common_tools_message }}
+packages:
+{% for package in common_tools_packages %}
+- {{ package }}
+{% endfor %}

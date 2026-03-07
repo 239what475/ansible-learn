@@ -1,0 +1,46 @@
+# `tasks/main.yml` 是 role 的主任务入口。
+# 当 playbook 里写 `roles: - role: common_tools` 时，这里的任务会被依次执行。
+# 可以把它理解成：role 真正开始“做事”的地方。
+# 前面的 `defaults/main.yml` 提供默认变量，这里负责使用这些变量去执行模块、渲染模板、触发 handlers。
+- name: Ensure report directory exists
+  # role 里一样可以使用普通模块；role 本质上只是把任务按目录组织起来。
+  # `state: directory` 表示这里最终应该是一个目录：如果不存在就创建，存在但属性不对就调整。
+  ansible.builtin.file:
+    path: "{{ common_tools_report_dir }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Install common tools packages
+  # 这里继续复用前面学过的 `apt + loop`。
+  # `common_tools_packages` 来自 role 的 defaults，可以被外部变量覆盖。
+  # 这里 `notify` 了同一个 handler；如果后面别的任务也 notify 了它，通常最后也只会执行一次。
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  loop: "{{ common_tools_packages }}"
+  notify: Report role template update
+
+- name: Render role report
+  # 这里继续复用前面学过的 `template`。
+  # 模板文件路径相对于当前 role 的 templates/ 目录。
+  # 这个任务也 notify 了同一个 handler；Ansible 会先把通知记下来，最后统一执行。
+  ansible.builtin.template:
+    src: common_tools_report.j2
+    dest: "{{ common_tools_report_file }}"
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  notify: Report role template update
+
+- name: Read rendered role report
+  ansible.builtin.command: cat {{ common_tools_report_file }}
+  register: common_tools_report_content
+  changed_when: false
+
+- name: Show role report lines
+  ansible.builtin.debug:
+    var: common_tools_report_content.stdout_lines
