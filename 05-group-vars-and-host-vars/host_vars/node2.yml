@@ -1,0 +1,5 @@
+# `host_vars/node2.yml` 只会对 node2 生效。
+# 文件名里的 `node2` 要和 inventory 里的主机名完全对应，Ansible 才会自动加载。
+node_role: db
+service_port: 8082
+role_message: from host_vars/node2.yml

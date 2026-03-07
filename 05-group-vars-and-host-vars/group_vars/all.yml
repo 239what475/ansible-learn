@@ -1,0 +1,8 @@
+# `group_vars/all.yml` 会对 inventory 里的所有主机生效。
+# 只要目录名叫 `group_vars`，文件名叫 `all.yml`，Ansible 就会自动加载它。
+# 这里适合放所有节点共享的变量。
+lesson_name: 05-group-vars-and-host-vars
+environment_name: incus-lab
+common_editor: vim
+# 下面这个变量会在更具体的范围里再次定义，用来观察覆盖关系。
+role_message: from group_vars/all.yml

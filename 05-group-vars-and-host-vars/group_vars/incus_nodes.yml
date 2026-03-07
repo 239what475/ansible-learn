@@ -1,0 +1,7 @@
+# `group_vars/incus_nodes.yml` 只会对 `incus_nodes` 组里的主机生效。
+# 文件名里的 `incus_nodes` 要和 inventory 里的组名完全对应，Ansible 才会自动加载。
+# 这里适合放这一个主机组共享的变量。
+service_port: 8080
+package_state: present
+# 这里再次定义 `role_message`，会覆盖掉 all.yml 里的同名变量。
+role_message: from group_vars/incus_nodes.yml

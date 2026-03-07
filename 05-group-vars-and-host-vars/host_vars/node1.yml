@@ -1,0 +1,6 @@
+# `host_vars/node1.yml` 只会对 node1 生效。
+# 文件名里的 `node1` 要和 inventory 里的主机名完全对应，Ansible 才会自动加载。
+# `host_vars` 比 `group_vars` 更具体，所以同名变量通常会以这里的值为准。
+node_role: app
+service_port: 8081
+role_message: from host_vars/node1.yml

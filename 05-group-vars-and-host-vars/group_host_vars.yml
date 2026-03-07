@@ -1,0 +1,84 @@
+- name: Learn group_vars and host_vars on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  # 这一章最关键的点是：Ansible 会先读取 inventory，知道有哪些组和主机，
+  # 然后按名字自动去找并加载：
+  # - `group_vars/all.yml`：对所有主机生效
+  # - `group_vars/incus_nodes.yml`：对 `incus_nodes` 组生效
+  # - `host_vars/node1.yml` / `host_vars/node2.yml`：只对对应主机生效
+  # 这些文件不需要在 playbook 里手动 include，只要目录名和文件名对得上，Ansible 就会自动加载。
+  hosts: incus_nodes
+  # 这一章不需要 root 权限，所以不打开 become。
+  gather_facts: false
+
+  vars:
+    # 这一章的重点不是这里的 `vars`，而是观察 `group_vars` / `host_vars` 会怎样自动加载。
+    report_dir: /home/ubuntu/ansible-vars-demo
+    report_file: /home/ubuntu/ansible-vars-demo/summary.txt
+
+  tasks:
+    - name: Show override example first
+      # 先只看两个最容易观察覆盖关系的变量：`service_port` 和 `role_message`。
+      # 这两个变量都在多个文件里重复定义过，所以最适合拿来观察“最后到底用了谁的值”。
+      # 在这个章节里可以先按下面的顺序理解覆盖关系：
+      # - `group_vars/all.yml` 提供全局默认值
+      # - `group_vars/incus_nodes.yml` 覆盖组级别的值
+      # - `host_vars/node1.yml` / `host_vars/node2.yml` 再覆盖主机级别的值
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "service_port = {{ service_port }}"
+          - "role_message = {{ role_message }}"
+
+    - name: Show loaded variables from group_vars and host_vars
+      # 执行到这里时，前面那些变量文件其实已经被自动读进来了。
+      # 你之所以可以直接写 `{{ lesson_name }}`、`{{ service_port }}`，
+      # 不是因为当前 playbook 里定义了它们，而是因为 Ansible 已经把匹配到的变量文件合并好了。
+      # 这一条把本章里会用到的变量再完整打印一遍。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "group_names = {{ group_names | join(', ') }}"
+          - "lesson_name = {{ lesson_name }}"
+          - "environment_name = {{ environment_name }}"
+          - "common_editor = {{ common_editor }}"
+          - "package_state = {{ package_state }}"
+          - "node_role = {{ node_role }}"
+          - "service_port = {{ service_port }}"
+          - "role_message = {{ role_message }}"
+
+    - name: Ensure report directory exists
+      # 这里用一个小文件把最终生效的变量值落到目标主机上，方便对照结果。
+      ansible.builtin.file:
+        path: "{{ report_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Write summary file from loaded variables
+      # 这里没有再引入新模块，继续用 `copy + content` 演示变量已经可以直接使用。
+      ansible.builtin.copy:
+        dest: "{{ report_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          group_names = {{ group_names | join(', ') }}
+          lesson_name = {{ lesson_name }}
+          environment_name = {{ environment_name }}
+          common_editor = {{ common_editor }}
+          package_state = {{ package_state }}
+          node_role = {{ node_role }}
+          service_port = {{ service_port }}
+          role_message = {{ role_message }}
+
+    - name: Read summary file
+      ansible.builtin.command: cat {{ report_file }}
+      register: summary_content
+      changed_when: false
+
+    - name: Show summary lines
+      # `stdout_lines` 会把标准输出按行拆开，更方便观察最终变量值。
+      ansible.builtin.debug:
+        var: summary_content.stdout_lines
