@@ -1,0 +1,16 @@
+- name: Show current included section
+  # 这里的 `current_section` 来自主 playbook 里 `include_tasks + loop` 传进来的值。
+  # 同一个任务文件会被重复加载多次，每次使用不同的 section 名。
+  ansible.builtin.debug:
+    msg: "current_section = {{ current_section }}"
+
+- name: Write one report file per section
+  ansible.builtin.copy:
+    dest: "{{ demo_dir }}/section-{{ current_section }}.txt"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+    content: |
+      source = tasks/report_section.yml
+      current_section = {{ current_section }}
+      inventory_hostname = {{ inventory_hostname }}

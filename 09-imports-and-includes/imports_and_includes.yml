@@ -1,0 +1,71 @@
+- name: Learn imports and includes on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这一章主要演示 playbook 拆分方式，不需要 root 权限。
+  gather_facts: false
+
+  vars:
+    # 这里准备一个目录和几个变量，供拆分出去的任务文件复用。
+    demo_dir: /home/ubuntu/ansible-import-demo
+    imported_file: /home/ubuntu/ansible-import-demo/imported.txt
+    dynamic_file: /home/ubuntu/ansible-import-demo/dynamic.txt
+    # 这个变量控制是否加载动态部分；后面会用 `| bool` 显式转成布尔值。
+    enable_dynamic_section: true
+    # 这里准备两个 section 名，后面会用 `include_tasks + loop` 逐个带进去。
+    report_sections:
+      - overview
+      - dynamic
+
+  tasks:
+    - name: Explain import_tasks and include_tasks
+      # `import_tasks` 可以理解成“静态导入”：Ansible 在解析 playbook 时，就把另一个任务文件直接展开进来。
+      # `include_tasks` 可以理解成“动态包含”：运行到这一行时，再决定要不要把另一个任务文件加载进来。
+      # 所以这两者都能拆文件，但使用时机和灵活性不一样。
+      ansible.builtin.debug:
+        msg:
+          - "import_tasks = 静态导入，偏向在解析阶段就确定任务结构。"
+          - "include_tasks = 动态包含，偏向在运行阶段按条件决定是否加载。"
+
+    - name: Import shared setup tasks
+      # `import_tasks` 常用于那些“无论如何都要纳入当前 play 的固定任务”。
+      # 你可以把它理解成：把 `tasks/static_setup.yml` 的内容直接拷贝到这里来执行。
+      # 它更像“先把结构写死”，所以通常不拿来配合 `loop`。
+      import_tasks: tasks/static_setup.yml
+
+    - name: Include optional dynamic tasks
+      # `include_tasks` 更适合配合 `when` 一起使用。
+      # 如果 `enable_dynamic_section = false`，这一整段动态任务就不会被加载。
+      # 它也比 `import_tasks` 更常配合 `loop`、运行时变量等动态场景。
+      # 这里额外写 `| bool`，是为了把变量明确转成布尔值；这样即使用 `-e` 传参，也不容易踩到字符串真假值的坑。
+      include_tasks: tasks/dynamic_section.yml
+      when: enable_dynamic_section | bool
+
+    - name: Include one report task file per section
+      # `include_tasks` 还能配合 `loop` 一起使用，这也是它和 `import_tasks` 的一个常见区别。
+      # 这里每循环一次，都会带着当前的 `item` 去加载同一个任务文件。
+      # `loop_control.loop_var` 的作用是“给循环变量改名”：默认名字是 `item`，这里改成了更清楚的 `current_section`。
+      # 所以下面的任务文件里就可以直接写 `{{ current_section }}`，而不用写默认的 `{{ item }}`。
+      # 这一节里 `report_sections` 有 2 个值，而 `tasks/report_section.yml` 里也正好有 2 个任务，
+      # 所以总共会发生 2 轮 × 每轮 2 个任务 = 4 次任务执行。
+      include_tasks: tasks/report_section.yml
+      loop: "{{ report_sections }}"
+      loop_control:
+        loop_var: current_section
+
+    - name: Read imported file after all task files ran
+      ansible.builtin.command: cat {{ imported_file }}
+      register: imported_result
+      changed_when: false
+
+    - name: Read dynamic file when dynamic section is enabled
+      ansible.builtin.command: cat {{ dynamic_file }}
+      register: dynamic_result
+      changed_when: false
+      when: enable_dynamic_section | bool
+
+    - name: Show final file contents
+      # `stdout_lines` 会把输出按换行拆开，便于和前面拆分出去的任务文件对应着看。
+      ansible.builtin.debug:
+        msg:
+          - "imported_result.stdout_lines = {{ imported_result.stdout_lines }}"
+          - "dynamic_result.stdout_lines = {{ dynamic_result.stdout_lines | default([]) }}"

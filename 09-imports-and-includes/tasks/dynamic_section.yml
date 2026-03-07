@@ -1,0 +1,16 @@
+- name: Show dynamic include message
+  # 这个任务文件是被 `include_tasks` 动态包含进来的。
+  # 只有当主 playbook 里的 `when: enable_dynamic_section` 成立时，Ansible 才会在运行时加载它。
+  ansible.builtin.debug:
+    msg: "当前启用了动态部分，所以 `tasks/dynamic_section.yml` 会被加载。"
+
+- name: Write dynamic section file
+  ansible.builtin.copy:
+    dest: "{{ dynamic_file }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+    content: |
+      source = tasks/dynamic_section.yml
+      type = include_tasks
+      inventory_hostname = {{ inventory_hostname }}

@@ -1,0 +1,21 @@
+- name: Ensure import demo directory exists
+  # 这个任务文件是被 `import_tasks` 静态导入进来的。
+  # 导入后，它看起来就像直接写在主 playbook 里一样。
+  ansible.builtin.file:
+    path: "{{ demo_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Write imported task summary file
+  # 这里会写一个固定文件，方便你观察“静态导入的任务”确实已经执行了。
+  ansible.builtin.copy:
+    dest: "{{ imported_file }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+    content: |
+      source = tasks/static_setup.yml
+      type = import_tasks
+      inventory_hostname = {{ inventory_hostname }}
