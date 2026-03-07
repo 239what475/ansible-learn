@@ -1,8 +1,12 @@
+# 这个示例开始同时展示 play 里的 `vars`、`tasks`、`notify` 和 `handlers`。
+# 如果你连续执行两次，通常第一次会有 `changed`，第二次会更接近 `ok`。
 - name: Install common packages on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
   hosts: incus_nodes
 
   # `become: true` 表示通过 sudo 提权执行后面的任务。
   become: true
+  # 这一节顺手开启 facts，为后面的章节做准备。
   gather_facts: true
 
   vars:
@@ -16,6 +20,8 @@
   tasks:
     - name: Refresh apt package index
       # `ansible.builtin.apt` 是 Ubuntu / Debian 系常用模块。
+      # `update_cache: true` 类似执行 apt update。
+      # `cache_valid_time: 3600` 表示缓存一小时内有效，避免每次都重复刷新。
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
@@ -23,6 +29,8 @@
       notify: Report apt cache refresh
 
     - name: Install common packages
+      # `state: present` 表示“确保这个包已经安装”。
+      # 如果包已经存在，Ansible 会尽量保持为 `ok` 而不是重复安装。
       ansible.builtin.apt:
         name: "{{ item }}"
         state: present

@@ -1,6 +1,6 @@
-# 这是模板文件，请先复制为 inventory.yml 再按真实环境修改。
+# 这一章通常直接复用 01-quickstart 生成的 inventory.yml。
+# 如果你想手动填写，也可以先复制本文件为 inventory.yml 再修改。
 all:
-  # `vars` 放这一组主机共享的连接参数。
   vars:
     # `ansible_connection` 表示 Ansible 用什么方式连接目标主机；这一章使用 SSH。
     ansible_connection: ssh
@@ -11,14 +11,11 @@ all:
     # `ansible_ssh_private_key_file` 是登录目标主机时使用的私钥路径。
     ansible_ssh_private_key_file: ~/.ssh/id_ed25519
 
-  # `children` 用来定义子组，方便后面按组执行 playbook。
   children:
     incus_nodes:
-      # `hosts` 下面列出具体主机；每台主机可以有自己的变量。
       hosts:
         node1:
           # `ansible_host` 是实际连接时使用的 IP 或域名。
-          # `node1` 只是 inventory 里的名字，不一定等于真实 hostname。
           ansible_host: 192.0.2.11
         node2:
           ansible_host: 192.0.2.12

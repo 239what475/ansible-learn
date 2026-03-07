@@ -1,0 +1,86 @@
+# 这一章建议把同一个 playbook 连续执行两次。
+# 第一次通常会出现较多 `changed`；第二次如果系统状态已经满足要求，很多任务会变成 `ok`。
+# 这就是理解 Ansible 幂等性的最好方式之一。
+- name: Learn common Ansible modules on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这里通过 sudo 提权，避免每个需要 root 权限的任务单独处理权限问题。
+  become: true
+  # 这一章开启 facts，方便后面继续学习变量和系统信息。
+  gather_facts: true
+
+  vars:
+    # `vars` 用来定义可复用数据，后面的任务会直接引用这些变量。
+    demo_dir: /home/ubuntu/ansible-module-demo
+    demo_file: /home/ubuntu/ansible-module-demo/hello.txt
+    extra_packages:
+      - jq
+      - tree
+
+  tasks:
+    - name: Ensure demo directory exists
+      # `file` 模块常用来创建目录、修改权限、调整 owner/group。
+      # 如果目录已经存在且权限也符合要求，第二次执行通常会显示为 `ok`。
+      ansible.builtin.file:
+        path: "{{ demo_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy demo file to managed hosts
+      # `copy` 模块适合下发小文件或直接写入一段内容。
+      # 只有当内容、权限或属主发生变化时，它才会显示为 `changed`。
+      ansible.builtin.copy:
+        dest: "{{ demo_file }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          hello from ansible
+          this file is managed by the copy module
+
+    - name: Install extra packages
+      # `apt` 模块比直接写 shell 更符合 Ansible 风格，也更容易做到幂等。
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        # `present` 表示“确保这个包已经安装”，如果本来就装好了就不会重复安装。
+        state: present
+        # `update_cache: true` 类似先执行一次 apt update，再继续后面的安装动作。
+        update_cache: true
+        # `cache_valid_time: 3600` 表示如果缓存 3600 秒内刚更新过，就不再重复刷新。
+        cache_valid_time: 3600
+      # `loop` 会让当前任务对 extra_packages 里的每个元素各执行一次。
+      loop: "{{ extra_packages }}"
+
+    - name: Inspect demo directory with command
+      # `command` 适合执行不需要 shell 特性的命令。
+      # 像 `ls -ld {{ demo_dir }}` 这种简单命令，优先用 `command`，不要急着用 `shell`。
+      ansible.builtin.command: ls -ld {{ demo_dir }}
+      # `register` 会把这条任务的执行结果保存到变量里，后面的任务可以继续使用。
+      # 常见字段有：
+      # - `stdout`：标准输出
+      # - `stderr`：错误输出
+      # - `rc`：返回码，通常 0 表示成功
+      register: demo_dir_info
+      # 这条命令只是读取目录信息，并没有修改系统状态，所以这里明确告诉 Ansible：不要记成 changed。
+      changed_when: false
+
+    - name: Count demo file lines with shell
+      # `shell` 适合需要管道、重定向、变量展开等 shell 特性的场景。
+      # 这里用到了管道 `|`，所以比 `command` 更适合。
+      ansible.builtin.shell: cat {{ demo_file }} | wc -l
+      # 后面会通过 `demo_file_line_count.stdout` 读取这条命令的标准输出。
+      # 如果命令失败，也可以查看 `demo_file_line_count.stderr` 和 `demo_file_line_count.rc`。
+      register: demo_file_line_count
+      # 这条任务只是统计文件行数，不会修改文件本身，所以让它在结果里显示为 ok 而不是 changed。
+      changed_when: false
+
+    - name: Show module results
+      # 这里演示怎样读取 register 保存下来的字段。
+      ansible.builtin.debug:
+        msg:
+          - "directory = {{ demo_dir_info.stdout }}"
+          - "directory_rc = {{ demo_dir_info.rc }}"
+          - "line_count = {{ demo_file_line_count.stdout }}"
+          - "line_count_rc = {{ demo_file_line_count.rc }}"

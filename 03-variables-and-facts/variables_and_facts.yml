@@ -1,0 +1,74 @@
+- name: Learn variables and facts on Incus nodes
+  # `hosts: incus_nodes` 表示这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  # 你在顶层变量里看到的 `group_names`，就是当前主机所属的组；这里的 `incus_nodes` 就会出现在里面。
+  hosts: incus_nodes
+  # `gather_facts: true` 会在任务开始前自动收集目标主机的系统信息。
+  gather_facts: true
+
+  vars:
+    # `vars` 适合放当前 play 里会重复使用的固定值。
+    lesson_name: 03-variables-and-facts
+
+  tasks:
+    - name: Show selected top-level variables
+      # 这里不再把所有顶层变量一次性打出来，而是只挑当前阶段最值得先认识的几个。
+      # 这些变量里既有 magic variables，也有 inventory 变量，还有 play 变量。
+      # `inventory_hostname` 是 inventory 里写下来的主机名；`inventory_hostname_short` 是它的短名字。
+      # 你现在的主机名是 `node1`、`node2`，所以这两个值看起来一样；如果主机名写成 `node1.example.com`，短名字通常会是 `node1`。
+      # 这里的 `group_names` 指的是 Ansible inventory 里的主机组，不是 Linux 用户组。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "inventory_hostname_short = {{ inventory_hostname_short }}"
+          - "ansible_host = {{ ansible_host }}"
+          - "ansible_user = {{ ansible_user }}"
+          - "group_names = {{ group_names | join(', ') }}"
+          - "inventory_file = {{ inventory_file }}"
+          - "playbook_dir = {{ playbook_dir }}"
+          - "lesson_name = {{ lesson_name }}"
+
+    - name: Show selected facts
+      # `ansible_facts` 很大，所以这里只挑一组最常见、最有代表性的 facts。
+      # `hostname`、`distribution`、`distribution_version`、`os_family` 主要帮助你识别目标系统本身。
+      # `default_ipv4`、`architecture`、`python_executable`、`service_mgr`、`virtualization_type` 则更偏向运行环境信息。
+      ansible.builtin.debug:
+        msg:
+          - 'hostname = {{ ansible_facts["hostname"] }}'
+          - 'distribution = {{ ansible_facts["distribution"] }}'
+          - 'distribution_version = {{ ansible_facts["distribution_version"] }}'
+          - 'os_family = {{ ansible_facts["os_family"] }}'
+          - 'default_ipv4 = {{ ansible_facts.get("default_ipv4", {}).get("address", "unknown") }}'
+          - 'architecture = {{ ansible_facts["architecture"] }}'
+          - 'python_executable = {{ ansible_facts["python"]["executable"] }}'
+          - 'service_mgr = {{ ansible_facts["service_mgr"] }}'
+          - 'virtualization_type = {{ ansible_facts["virtualization_type"] }}'
+
+    - name: Read current kernel version
+      # `register` 会把当前任务的执行结果保存到变量里，后面的任务可以继续使用。
+      ansible.builtin.command: uname -r
+      register: kernel_info
+      # 这里只是读取信息，不会修改系统状态，所以让结果显示为 ok 而不是 changed。
+      changed_when: false
+
+    - name: Read current uptime with shell
+      # `shell` 适合需要 shell 特性的命令，这里用它再演示一次 `register`。
+      ansible.builtin.shell: uptime -p
+      register: uptime_info
+      changed_when: false
+
+    - name: Show register results
+      # `register` 保存下来的结果里，最常见的字段是 `stdout`、`stderr` 和 `rc`。
+      ansible.builtin.debug:
+        msg:
+          - "kernel_info.stdout = {{ kernel_info.stdout }}"
+          - "kernel_info.stderr = {{ kernel_info.stderr }}"
+          - "kernel_info.rc = {{ kernel_info.rc }}"
+          - "uptime_info.stdout = {{ uptime_info.stdout }}"
+          - "uptime_info.stderr = {{ uptime_info.stderr }}"
+          - "uptime_info.rc = {{ uptime_info.rc }}"
+
+    - name: Run only on Ubuntu
+      # `when` 用来控制任务是否执行，条件为真时这条任务才会运行。
+      ansible.builtin.debug:
+        msg: "当前节点是 Ubuntu，所以这条任务会执行。"
+      when: ansible_facts['distribution'] == 'Ubuntu'

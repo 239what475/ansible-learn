@@ -1,8 +1,7 @@
 # Ansible Learn
 
 这是一个面向初学者的 `Ansible` 学习仓库。
-
-当前这套教程默认使用：
+当前默认使用：
 
 - `uv + .venv` 作为本地 Python / Ansible 环境
 - `Incus` 容器作为被管理节点
@@ -15,17 +14,23 @@
 3. `00-prestart/ssh.md`
 4. `00-prestart/incus.md`
 5. `01-quickstart/README.md`
+6. `02-common-modules/README.md`
+7. `03-variables-and-facts/README.md`
 
 ## 目录说明
 
 - `00-prestart/`：开始实操前需要完成的本机环境准备
-- `01-quickstart/`：第一章，目标是跑通最小可用的 `Ansible + Incus` 实验环境
+- `01-quickstart/`：第一章，跑通最小可用的 `Ansible + Incus` 实验环境
+- `02-common-modules/`：第二章，学习常用模块和幂等性
+- `03-variables-and-facts/`：第三章，学习变量、facts、`register` 和 `debug`
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
-## 当前学习路径
+## 学习路径
 
-- 先完成 `00-prestart/` 里的环境准备
-- 再进入 `01-quickstart/` 跑通实验环境
+- 先完成 `00-prestart/`
+- 再进入 `01-quickstart/`
+- 然后进入 `02-common-modules/`
+- 接着进入 `03-variables-and-facts/`
 
 ## 文件约定
 
@@ -35,7 +40,5 @@
 
 ## 说明
 
-如果你只是想直接开始动手，最短路径是：
-
-1. 先看 `00-prestart/README.md`
-2. 然后进入 `01-quickstart/README.md`
+- `README` 主要负责导航
+- 章节里的关键学习点尽量写在 playbook、inventory、配置文件和脚本的就地注释中

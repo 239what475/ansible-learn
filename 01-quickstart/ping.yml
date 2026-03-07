@@ -1,3 +1,5 @@
+# 这是最小可运行的 Ansible playbook 之一。
+# 建议先看这个文件，再看 install_common.yml。
 - name: Verify Ansible can reach Incus nodes
   # `hosts` 指定这次 play 要作用到哪一组主机。
   hosts: incus_nodes
@@ -7,10 +9,15 @@
 
   tasks:
     - name: Ping managed hosts
+      # `ansible.builtin.ping` 不是系统里的 ICMP ping。
+      # 它会通过 SSH 登录目标主机，再执行一个最小模块测试 Python 和模块调用是否正常。
       ansible.builtin.ping:
 
     - name: Show current target information
       # 这里顺手打印几个最常见的上下文变量，方便理解 inventory 是怎么生效的。
+      # `inventory_hostname` 是 inventory 里写下来的名字。
+      # `ansible_host` 是实际连接目标主机时使用的 IP 或域名。
+      # `ansible_user` 是 Ansible 连接目标主机时使用的用户。
       ansible.builtin.debug:
         msg:
           - "inventory_hostname = {{ inventory_hostname }}"
