@@ -1,0 +1,185 @@
+- name: Learn Linux users and groups on Incus nodes
+  # 这一章操作的是系统用户和用户组，所以直接在 play 层开启 `become: true`。
+  # 这也顺手呼应前面第 14 章：`become` 可以写在 play / block / task 三个层级。
+  hosts: incus_nodes
+  gather_facts: false
+  become: true
+
+  vars:
+    lesson_name: 19-users-and-groups
+    demo_primary_group: ansible_demo
+    demo_extra_group: ansible_shared
+    demo_user_name: ansible_demo
+    demo_note_file: "/home/{{ demo_user_name }}/tutorial-note.txt"
+
+  tasks:
+    - name: Explain user and group modules
+      ansible.builtin.debug:
+        msg:
+          - "`group` 模块这里管理的是 Linux 用户组，不是 inventory 里的 Ansible 主机组。"
+          - "`user.group` 是主组；`user.groups` 是附加组。"
+          - "可以先把主组理解成这个用户的默认所属组，把附加组理解成额外再加入的其他组。"
+          - "`getent` 不会创建用户，只是把系统里的用户 / 用户组信息读出来。"
+      run_once: true
+
+    - name: Ensure demo primary Linux group exists
+      # `group` 模块管理的是 Linux 用户组。
+      # 这里创建的是系统里的 `ansible_demo` 组，不是 inventory 里的 `incus_nodes` 组。
+      # `state: present` 可以先理解成“确保它存在”。
+      # 这里的 `state` 不是 Ansible 全局只有两种固定值，而是要看具体模块支持什么状态。
+      # 例如：
+      # - `group` / `user` 常见是 `present`、`absent`；
+      # - `file` 常见还会有 `directory`、`touch`、`link`；
+      # - `service` 常见则是 `started`、`stopped`。
+      ansible.builtin.group:
+        name: "{{ demo_primary_group }}"
+        state: present
+
+    - name: Ensure demo extra Linux group exists
+      ansible.builtin.group:
+        name: "{{ demo_extra_group }}"
+        state: present
+
+    - name: Ensure demo user exists with primary and extra groups
+      # `group` 指主组；`groups` 指附加组。
+      #
+      # 可以先这样区分：
+      # - 主组（primary group）：这个用户默认归属的那一个组。
+      #   当用户新建文件时，如果没有别的特殊设置，文件的所属组通常会先落到主组上。
+      #   在 `id 用户名` 的输出里，`gid=...(...)` 对应的通常就是主组。
+      # - 附加组（supplementary groups）：在主组之外，这个用户额外再加入的其他组。
+      #   它们更像“额外权限组”；在 `id 用户名` 的输出里，`groups=...` 后面列出来的通常会包含这些组。
+      #
+      # 现实里常见的附加组例子：
+      # - `docker`：把用户加入 `docker` 组后，常常就能少用 `sudo docker ...`；
+      # - `incus-admin`：你前面配置 Incus 时加的就是这种附加组；
+      # - `sudo`：把用户加入这个组后，通常就能通过 sudo 获得提权能力。
+      #
+      # 放到这个例子里：
+      # - `group: ansible_demo` 表示把 `ansible_demo` 设成这个用户的主组；
+      # - `groups: ansible_shared` 表示再额外把这个用户加入 `ansible_shared` 这个附加组。
+      #
+      # `append: true` 表示把附加组加进去，而不是把用户已有的附加组全部替换掉。
+      # `shell: /bin/bash` 这里不是“马上执行一次 bash”，而是在设置这个用户今后的登录 shell。
+      # 也就是当这个用户以后登录系统时，默认使用 `/bin/bash` 作为命令解释器。
+      # `create_home: true` 则表示：如果这个用户的 home 目录还不存在，就把它创建出来。
+      # 例如这里通常会创建 `/home/ansible_demo`；这也是后面能往它 home 目录里写文件的前提之一。
+      # 这一项在很多 Linux 上本来就是默认行为，但教程里显式写出来，会更容易看懂。
+      ansible.builtin.user:
+        name: "{{ demo_user_name }}"
+        group: "{{ demo_primary_group }}"
+        groups: "{{ demo_extra_group }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+        state: present
+
+    - name: Write one note file in demo user's home
+      # 这里顺手验证：
+      # - `user` 模块已经把 home 目录准备好了；
+      # - 我们也能继续为这个用户写文件并设置 owner/group。
+      #
+      # `mode: '0644'` 表示文件权限。
+      # 可以先把它拆成三段理解：
+      # - 第一位 `0`：这里主要是为了明确告诉 Ansible 这是八进制权限写法；教程里通常建议把权限写成字符串并保留前导 `0`。
+      # - 第二位 `6`：owner（文件所有者）的权限，`6 = 4 + 2`，表示可读 + 可写。
+      # - 第三位 `4`：group（文件所属组）的权限，`4` 表示只读。
+      # - 第四位 `4`：other（其他用户）的权限，`4` 表示只读。
+      # 所以 `0644` 可以先理解成：
+      # - owner: rw-
+      # - group: r--
+      # - other: r--
+      #
+      # 常见数字和含义：
+      # - `4` = read = r
+      # - `2` = write = w
+      # - `1` = execute = x
+      # - `6` = 4 + 2 = rw-
+      # - `7` = 4 + 2 + 1 = rwx
+      #
+      # 常见模式示例：
+      # - `0644`：普通文本文件很常见；所有者可读写，其他人只读。
+      # - `0600`：更私密的文件很常见，比如私钥；只有所有者可读写。
+      # - `0755`：目录或可执行脚本很常见；所有者可读写执行，其他人可读执行。
+      # - `0700`：只允许所有者访问；常见于 `.ssh/` 目录。
+      ansible.builtin.copy:
+        dest: "{{ demo_note_file }}"
+        owner: "{{ demo_user_name }}"
+        group: "{{ demo_primary_group }}"
+        mode: '0644'
+        content: |
+          demo_user_name = {{ demo_user_name }}
+          primary_group = {{ demo_primary_group }}
+          extra_group = {{ demo_extra_group }}
+
+    - name: Read passwd entry with getent
+      # `getent` 可以先理解成“用系统自己的用户 / 组数据库查一条记录”。
+      # 这里的“数据库”不是说一定有一个真正的数据库服务在跑，更多是 Linux 里的“账号信息来源表”这个概念。
+      # 对很多机器来说：
+      # - `passwd` 常常对应用户信息来源，可以近似联想到 `/etc/passwd`；
+      # - `group` 常常对应组信息来源，可以近似联想到 `/etc/group`。
+      # 但更准确地说，系统也可能把这些信息接到别的来源上，比如 LDAP；`getent` 会按系统当前配置去查。
+      #
+      # 这和 Linux 命令行里的 `getent passwd ansible_demo` 是同一个思路；
+      # 这里只是 Ansible 帮你把它做成了模块调用。
+      #
+      # `getent_<database>` 这一层名字是按固定模式动态生成的：
+      # - `database: passwd` -> `ansible_facts.getent_passwd`
+      # - `database: group` -> `ansible_facts.getent_group`
+      # 所以它不是你手写起名的，也不是完全随机的。
+      #
+      # 这里查的是 `passwd` 数据库，`key` 就是要查的用户名。
+      # 所以这条任务的意思是：去目标主机上查 `ansible_demo` 这个用户在 passwd 数据库里的记录。
+      #
+      # `split: ':'` 表示把原本像 `/etc/passwd` 那样用冒号分隔的一整行，拆成列表。
+      # 对 `passwd` 来说，常见字段顺序可以先这样记：
+      # - `[0]`：密码占位（常见是 `x`）
+      # - `[1]`：uid
+      # - `[2]`：gid（通常就是主组的 gid）
+      # - `[3]`：comment / gecos
+      # - `[4]`：home 目录
+      # - `[5]`：login shell
+      #
+      # 这条任务不会写到 `register` 里，而是会更新 `ansible_facts.getent_passwd`。
+      # 也就是说，后面可以通过 `ansible_facts.getent_passwd[用户名]` 去读这一行拆出来的字段。
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ demo_user_name }}"
+        split: ':'
+
+    - name: Read group entry with getent
+      # 这里查的是 `group` 数据库，`key` 是组名。
+      # 所以这条任务的意思是：去目标主机上查 `ansible_shared` 这个组在 group 数据库里的记录。
+      #
+      # 对 `group` 来说，拆完后常见字段顺序可以先这样记：
+      # - `[0]`：密码占位（常见是 `x`）
+      # - `[1]`：gid
+      # - `[2]`：成员列表（常见是逗号分隔的用户名字符串）
+      #
+      # 同样，它不会写到 `register` 里，而是会更新 `ansible_facts.getent_group`。
+      ansible.builtin.getent:
+        database: group
+        key: "{{ demo_extra_group }}"
+        split: ':'
+
+    - name: Read id output for demo user
+      # `id 用户名` 是 Linux 里很常见的查看用户 / 组关系的命令。
+      # `changed_when: false` 表示这里只是在读信息，不应被记成 changed。
+      ansible.builtin.command: id {{ demo_user_name }}
+      register: demo_user_id
+      changed_when: false
+
+    - name: Show final user and group results
+      # 这里故意把 `getent` 拿到的列表再拆开显示，方便和前面的注释对照着看。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "passwd_entry = {{ ansible_facts.getent_passwd[demo_user_name] }}"
+          - "passwd_uid = {{ ansible_facts.getent_passwd[demo_user_name][1] }}"
+          - "passwd_gid = {{ ansible_facts.getent_passwd[demo_user_name][2] }}"
+          - "passwd_home = {{ ansible_facts.getent_passwd[demo_user_name][4] }}"
+          - "passwd_shell = {{ ansible_facts.getent_passwd[demo_user_name][5] }}"
+          - "group_entry = {{ ansible_facts.getent_group[demo_extra_group] }}"
+          - "group_gid = {{ ansible_facts.getent_group[demo_extra_group][1] }}"
+          - "group_members = {{ ansible_facts.getent_group[demo_extra_group][2] | default('') }}"
+          - "demo_user_id.stdout = {{ demo_user_id.stdout }}"

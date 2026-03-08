@@ -31,6 +31,7 @@
 20. `16-lineinfile-blockinfile-replace/README.md`
 21. `17-archive-unarchive-fetch/README.md`
 22. `18-wait-for-and-retries/README.md`
+23. `19-users-and-groups/README.md`
 
 ## 目录说明
 
@@ -53,6 +54,7 @@
 - `16-lineinfile-blockinfile-replace/`：第十六章，学习 lineinfile、blockinfile 和 replace
 - `17-archive-unarchive-fetch/`：第十七章，学习 archive、unarchive 和 fetch
 - `18-wait-for-and-retries/`：第十八章，学习 wait_for、until、retries 和 delay
+- `19-users-and-groups/`：第十九章，学习 group、user、getent 和 Linux 用户组
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -76,6 +78,7 @@
 - 然后进入 `16-lineinfile-blockinfile-replace/`
 - 然后进入 `17-archive-unarchive-fetch/`
 - 然后进入 `18-wait-for-and-retries/`
+- 然后进入 `19-users-and-groups/`
 
 ## 文件约定
 
