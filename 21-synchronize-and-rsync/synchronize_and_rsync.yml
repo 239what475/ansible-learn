@@ -1,0 +1,133 @@
+- name: Learn synchronize and rsync on Incus nodes
+  # `rsync` 可以先理解成 Linux / Unix 世界里很常见的“目录和文件同步工具”。
+  # 它不只是简单复制文件，还很擅长：
+  # - 递归同步目录；
+  # - 只传变化的部分；
+  # - 保留时间、权限等元数据；
+  # - 在本地和远程之间做增量同步。
+  #
+  # `synchronize` 本质上是对 `rsync` 的一个常用封装。
+  # 它和 `copy` / `fetch` 的最大区别之一是：真正的数据同步动作更偏向由 rsync 来完成。
+  hosts: incus_nodes
+  gather_facts: false
+  become: true
+
+  vars:
+    lesson_name: 21-synchronize-and-rsync
+    local_sync_src_dir: "{{ playbook_dir }}/sync-src"
+    local_sync_pull_dir: "{{ playbook_dir }}/sync-pulled"
+    remote_sync_dir: /home/ubuntu/ansible-sync-demo
+
+  tasks:
+    - name: Explain synchronize basics
+      ansible.builtin.debug:
+        msg:
+          - "`synchronize` 可以先理解成 Ansible 对 rsync 的常用封装。"
+          - "`mode: push` 表示控制端本地是源，远程主机是目标。"
+          - "`mode: pull` 表示远程主机是源，控制端本地是目标。"
+          - "这个模块要求本地和远程通常都要有 `rsync`。"
+      run_once: true
+
+    - name: Ensure rsync is installed on remote hosts
+      # `synchronize` 最终是靠 rsync 做文件同步，所以远程主机也要有 `rsync`。
+      ansible.builtin.apt:
+        name: rsync
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure remote sync directory exists
+      ansible.builtin.file:
+        path: "{{ remote_sync_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Ensure local source directory exists on controller
+      # `delegate_to: localhost` 表示这条任务实际在控制端本机执行。
+      # 这里准备的是本地源目录，后面会被 `synchronize` 推到远程主机上。
+      # 因为这一条是本地控制端任务，所以显式写 `become: false`，避免沿用 play 层的提权设置。
+      ansible.builtin.file:
+        path: "{{ local_sync_src_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Write one local controller file for push demo
+      # 这一条仍然是在控制端本机执行，所以写出来的是本地文件，不是远程文件。
+      ansible.builtin.copy:
+        dest: "{{ local_sync_src_dir }}/shared-note.txt"
+        mode: '0644'
+        content: |
+          lesson_name = {{ lesson_name }}
+          source_side = controller
+          sync_mode = push
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Push local directory to remote hosts
+      # `mode: push` 时：
+      # - `src` 是控制端本地路径；
+      # - `dest` 是远程主机路径。
+      #
+      # 这里 `src` 末尾带了 `/`，可以先理解成“同步目录里的内容”；
+      # 如果不带 `/`，rsync 的目录层级结果会有所不同。
+      ansible.posix.synchronize:
+        src: "{{ local_sync_src_dir }}/"
+        dest: "{{ remote_sync_dir }}/"
+        mode: push
+      register: push_result
+
+    - name: Write one host-specific remote file after push
+      # 这条任务在远程主机上执行，所以它会给每台主机各自再写一份不同内容。
+      ansible.builtin.copy:
+        dest: "{{ remote_sync_dir }}/host-note.txt"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          ansible_host = {{ ansible_host }}
+          source_side = remote-host
+
+    - name: Ensure local pull base directory exists on controller
+      ansible.builtin.file:
+        path: "{{ local_sync_pull_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Pull remote directory back to controller
+      # `mode: pull` 时：
+      # - 当前远程主机是源；
+      # - 控制端本地路径是目标。
+      #
+      # 这里特意给每台主机单独放到不同目录下，避免 `node1` 和 `node2` 拉回来的文件互相覆盖。
+      ansible.posix.synchronize:
+        src: "{{ remote_sync_dir }}/"
+        dest: "{{ local_sync_pull_dir }}/{{ inventory_hostname }}/"
+        mode: pull
+      register: pull_result
+
+    - name: Read one pulled file on controller
+      # 虽然这里用的是 `command`，但因为加了 `delegate_to: localhost`，
+      # 所以读取动作发生在控制端本地，而不是远程主机里。
+      ansible.builtin.command: cat {{ local_sync_pull_dir }}/{{ inventory_hostname }}/host-note.txt
+      register: pulled_host_note
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Show final synchronize results
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "push_result.changed = {{ push_result.changed }}"
+          - "pull_result.changed = {{ pull_result.changed }}"
+          - "pulled_host_note.stdout_lines = {{ pulled_host_note.stdout_lines }}"
