@@ -28,6 +28,7 @@
 17. `13-asserts-and-validation/README.md`
 18. `14-become-and-privilege-escalation/README.md`
 19. `15-services-and-systemd/README.md`
+20. `16-lineinfile-blockinfile-replace/README.md`
 
 ## 目录说明
 
@@ -47,6 +48,7 @@
 - `13-asserts-and-validation/`：第十三章，学习 assert、fail、stat 和多主机验证
 - `14-become-and-privilege-escalation/`：第十四章，学习 become、become_user 和提权范围
 - `15-services-and-systemd/`：第十五章，学习 service_facts、systemd_service 和服务状态管理
+- `16-lineinfile-blockinfile-replace/`：第十六章，学习 lineinfile、blockinfile 和 replace
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -67,6 +69,7 @@
 - 然后进入 `13-asserts-and-validation/`
 - 然后进入 `14-become-and-privilege-escalation/`
 - 然后进入 `15-services-and-systemd/`
+- 然后进入 `16-lineinfile-blockinfile-replace/`
 
 ## 文件约定
 

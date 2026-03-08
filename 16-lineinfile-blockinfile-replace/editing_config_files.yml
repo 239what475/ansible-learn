@@ -1,0 +1,92 @@
+- name: Learn lineinfile blockinfile and replace on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    config_file: /etc/ansible-learn-edit.conf
+
+  tasks:
+    - name: Explain lineinfile blockinfile and replace
+      # `lineinfile` 适合管理“某一行”配置。
+      # `blockinfile` 适合管理“一整段”配置，并自动加上可识别的标记。
+      # `replace` 适合做“按正则批量替换已有文本”。
+      ansible.builtin.debug:
+        msg:
+          - "lineinfile = 管一行。"
+          - "blockinfile = 管一段。"
+          - "replace = 按匹配规则替换已有文本。"
+      run_once: true
+
+    - name: Create one base config file first
+      # 为了更清楚地观察后面的编辑效果，这里先放一个基础配置文件。
+      ansible.builtin.copy:
+        dest: "{{ config_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          app_name = ansible-learn
+          mode = development
+          max_clients = 10
+          log_enabled = false
+
+    - name: Ensure one config line is present with lineinfile
+      # `lineinfile` 常见会配合 `regexp` 一起用。
+      # 这表示：如果找到匹配这条正则的旧行，就替换它；否则就在文件里新增这一行。
+      ansible.builtin.lineinfile:
+        path: "{{ config_file }}"
+        regexp: '^mode ='
+        line: 'mode = production'
+
+    - name: Replace one existing value with replace
+      # `replace` 更像“在已有文本里找模式并替换”。
+      # 它不会像 `lineinfile` 那样自动保证某一整行一定存在。
+      ansible.builtin.replace:
+        path: "{{ config_file }}"
+        regexp: 'max_clients = 10'
+        replace: 'max_clients = 20'
+
+    - name: Manage one config block with blockinfile
+      # `blockinfile` 会自动加上 BEGIN/END 标记，方便以后再次识别并更新这整段内容。
+      # 它很适合管理一整段由 Ansible 接管的配置。
+      # 这里的 `marker` 模板里有一个特殊占位符 `{mark}`：实际写入文件时，它会分别变成 `BEGIN` 和 `END`。
+      # 所以当前文件里你会看到：
+      # `# BEGIN ANSIBLE MANAGED BLOCK`
+      # `# END ANSIBLE MANAGED BLOCK`
+      # 这里的 `block: |` 里，`|` 是 YAML 的多行文本保留写法，意思是“下面这一整段文本按原来的换行写进去”。
+      # 它和前面见过的 `>-` 不一样：`|` 更适合这种配置块，因为我们就是希望保留每一行；`>-` 更适合长表达式折行。
+      # 还要注意：下一条任务会用完全相同的 marker 再次更新这同一块内容。
+      # 所以如果两个任务都保留，这一条任务会先把块改成“只有 feature_x / feature_y”，
+      # 然后下一条再改成“feature_x / feature_y / feature_z”；这样每次执行都可能显示 changed。
+      ansible.builtin.blockinfile:
+        path: "{{ config_file }}"
+        marker: '# {mark} ANSIBLE MANAGED BLOCK'
+        block: |
+          feature_x = enabled
+          feature_y = disabled
+
+    - name: Update same managed block again with same marker
+      # 这是一个专门用来说明“它以后怎么识别”的例子。
+      # 这里再次执行 `blockinfile`，而且故意使用和上一条任务完全相同的 marker。
+      # `blockinfile` 下次运行时，就是靠这对 BEGIN/END 标记找到旧块的；
+      # 如果 marker 一样，它会更新原来的那一块，而不是再追加一个重复的新块。
+      # 所以最终文件里仍然只会有一组 `# BEGIN ...` / `# END ...`，但中间内容会被更新。
+      # 也正因为这条任务和上一条任务使用同一个 marker、却给出不同 block 内容，
+      # 它们在教学里是“故意互相覆盖”的关系：用来演示识别与更新，但不是一个严格幂等的最终配置示例。
+      ansible.builtin.blockinfile:
+        path: "{{ config_file }}"
+        marker: '# {mark} ANSIBLE MANAGED BLOCK'
+        block: |
+          feature_x = enabled
+          feature_y = disabled
+          feature_z = enabled
+
+    - name: Read final config file
+      ansible.builtin.command: cat {{ config_file }}
+      register: edited_config
+      changed_when: false
+
+    - name: Show final config file lines
+      ansible.builtin.debug:
+        var: edited_config.stdout_lines
