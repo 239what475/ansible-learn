@@ -1,0 +1,2 @@
+# 这个文件只对 `dev` 环境里的 `node1` 生效。
+node_role: dev-primary

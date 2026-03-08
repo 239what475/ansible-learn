@@ -1,0 +1,16 @@
+# 这是 `prod` 环境的 inventory 模板。
+# 文件结构和 `dev` 保持一致，但可以使用不同的主机地址、不同的 `group_vars`、不同的 `host_vars`。
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_user: your-user
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    incus_nodes:
+      hosts:
+        node1:
+          ansible_host: 192.0.2.11
+        node2:
+          ansible_host: 192.0.2.12

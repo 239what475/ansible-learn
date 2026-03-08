@@ -1,0 +1,7 @@
+# 这个文件只对 `dev` 环境生效。
+# 当你使用 `inventories/dev/inventory.yml` 时，Ansible 会自动读取这里的变量。
+# 例如这里的 `app_base_dir`、`app_message`，都会在 `dev` 环境下变成当前生效值。
+environment_name: dev
+app_base_dir: /home/ubuntu/ansible-layout-demo
+app_message: from dev environment
+default_editor: vim

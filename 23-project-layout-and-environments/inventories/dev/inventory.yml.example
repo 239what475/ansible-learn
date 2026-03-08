@@ -1,0 +1,19 @@
+# 这是 `dev` 环境的 inventory 模板。
+# 复制成 `inventory.yml` 后，Ansible 会同时读取同目录下的：
+# - `group_vars/`
+# - `host_vars/`
+# 所以“切换环境”不只是切换主机清单，也是在切换这一整套环境变量目录。
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_user: your-user
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    incus_nodes:
+      hosts:
+        node1:
+          ansible_host: 192.0.2.11
+        node2:
+          ansible_host: 192.0.2.12

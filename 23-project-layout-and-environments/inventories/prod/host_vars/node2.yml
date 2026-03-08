@@ -1,0 +1,2 @@
+# 这个文件只对 `prod` 环境里的 `node2` 生效。
+node_role: prod-secondary

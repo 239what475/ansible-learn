@@ -1,0 +1,7 @@
+# 这个文件只对 `prod` 环境生效。
+# 同样的变量名，在切到 `prod` 环境后就会变成这里的值。
+# 所以像 `app_base_dir` 这种同名变量，看起来会“变”，本质上是因为切换到了另一套环境变量文件。
+environment_name: prod
+app_base_dir: /home/ubuntu/ansible-layout-demo
+app_message: from prod environment
+default_editor: nano

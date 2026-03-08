@@ -1,0 +1,118 @@
+- name: Learn project layout and environments on Incus nodes
+  # 这一章的重点不是新模块，而是“一个更真实的项目怎么组织”。
+  #
+  # 这里的关键观察点有两个：
+  # - 同一个 `site.yml`，可以配合不同的 inventory 目录工作；
+  # - 当你从 `dev` 切到 `prod` 时，自动加载的 `group_vars` / `host_vars` 也会跟着切换。
+  hosts: incus_nodes
+  gather_facts: false
+
+  tasks:
+    - name: Explain project layout basics
+      ansible.builtin.debug:
+        msg:
+          - "`ansible.cfg` 默认指向 `inventories/dev/inventory.yml`。"
+          - "如果命令行显式写 `-i inventories/prod/inventory.yml`，就会切到 `prod` 环境。"
+          - "环境切换时，不只是 inventory 变了；同目录下自动加载的 `group_vars` / `host_vars` 也一起切换。"
+      run_once: true
+
+    - name: Show which inventory file is currently active
+      # 这里把几类不同来源的变量放在一起看：
+      # - `inventory_hostname`：Ansible 自带的 magic variable，表示当前主机在 inventory 里的名字；
+      # - `inventory_file`：Ansible 自带的 magic variable，表示当前实际生效的 inventory 文件路径；
+      # - `environment_name`：我们自己定义的普通变量，来自当前环境目录下的 `group_vars/all.yml`；
+      # - `node_role`：我们自己定义的普通变量，来自当前环境目录下的 `host_vars/{{ inventory_hostname }}.yml`。
+      #
+      # 所以当你从 `dev` 切到 `prod` 时：
+      # - `inventory_hostname` 可能不变；
+      # - `inventory_file` 会变；
+      # - `environment_name` 和 `node_role` 也会跟着换成那个环境里的值。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "inventory_file = {{ inventory_file }}"
+          - "environment_name = {{ environment_name }}"
+          - "node_role = {{ node_role }}"
+
+    - name: Ensure environment report directory exists
+      # `app_base_dir` 不是 Ansible 内置变量，而是我们自己在环境目录里定义的普通变量。
+      # 这一章里：
+      # - 默认跑 `dev` 时，会从 `inventories/dev/group_vars/all.yml` 里拿到它；
+      # - 显式切到 `prod` 时，会从 `inventories/prod/group_vars/all.yml` 里拿到它。
+      #
+      # 所以“这个变量会变”的意思不是 playbook 运行到一半自己变化，
+      # 而是：你切换了当前使用的 inventory 环境后，Ansible 自动加载了另一套 `group_vars`，
+      # 同名变量 `app_base_dir` 于是就会变成那个环境里定义的值。
+      #
+      # 这里用的是 `ansible.builtin.file`。
+      # 可以先把它理解成：更偏向管理“路径本身的状态”，而不是文件内容。
+      # 这一条任务关心的是：
+      # - `{{ app_base_dir }}` 这个路径存不存在；
+      # - 它最终是不是一个目录；
+      # - owner / group / mode 对不对。
+      #
+      # 所以 `file` 模块更像是在说：
+      # “把这个路径调整成我想要的文件系统状态”。
+      # 它不会负责往文件里写正文内容。
+      ansible.builtin.file:
+        path: "{{ app_base_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Write one environment-specific report
+      # 这里故意使用一组来自不同层次的变量，并把来源写清楚：
+      # - `environment_name`：
+      #   - `dev` 时来自 `inventories/dev/group_vars/all.yml`
+      #   - `prod` 时来自 `inventories/prod/group_vars/all.yml`
+      # - `app_message`：
+      #   - `dev` 时来自 `inventories/dev/group_vars/all.yml`
+      #   - `prod` 时来自 `inventories/prod/group_vars/all.yml`
+      # - `default_editor`：
+      #   - `dev` 时来自 `inventories/dev/group_vars/all.yml`
+      #   - `prod` 时来自 `inventories/prod/group_vars/all.yml`
+      # - `app_port`、`feature_flag`：
+      #   - `dev` 时来自 `inventories/dev/group_vars/incus_nodes.yml`
+      #   - `prod` 时来自 `inventories/prod/group_vars/incus_nodes.yml`
+      # - `node_role`：
+      #   - 当前主机是 `node1` 时，来自对应环境下的 `host_vars/node1.yml`
+      #   - 当前主机是 `node2` 时，来自对应环境下的 `host_vars/node2.yml`
+      #
+      # 所以你切到 `prod` 时，即使 playbook 不变，写出来的内容也会跟着变，
+      # 因为 Ansible 自动加载的是另一套环境目录里的变量文件。
+      #
+      # 这里用的是 `ansible.builtin.copy`。
+      # 可以先把它理解成：更偏向管理“文件内容”。
+      # 这一条任务关心的是：
+      # - 目标文件在不在；
+      # - 如果不存在，就创建；
+      # - 如果存在但内容不同，就把内容改成 `content:` 里写的样子；
+      # - 同时也可以顺手设置 owner / group / mode。
+      #
+      # 所以一个很实用的区分是：
+      # - `file`：管路径状态、目录、权限、链接这类“对象属性”；
+      # - `copy`：管文件里到底写了什么“正文内容”。
+      ansible.builtin.copy:
+        dest: "{{ app_base_dir }}/report.txt"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          inventory_file = {{ inventory_file }}
+          environment_name = {{ environment_name }}
+          app_message = {{ app_message }}
+          default_editor = {{ default_editor }}
+          app_port = {{ app_port }}
+          feature_flag = {{ feature_flag }}
+          node_role = {{ node_role }}
+
+    - name: Read environment report
+      ansible.builtin.command: cat {{ app_base_dir }}/report.txt
+      register: env_report
+      changed_when: false
+
+    - name: Show environment report lines
+      ansible.builtin.debug:
+        var: env_report.stdout_lines
