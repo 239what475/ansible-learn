@@ -34,6 +34,7 @@
 23. `19-users-and-groups/README.md`
 24. `20-cron-and-scheduled-tasks/README.md`
 25. `21-synchronize-and-rsync/README.md`
+26. `22-secrets-and-vault/README.md`
 
 ## 目录说明
 
@@ -59,6 +60,7 @@
 - `19-users-and-groups/`：第十九章，学习 group、user、getent 和 Linux 用户组
 - `20-cron-and-scheduled-tasks/`：第二十章，学习 cron 模块和定时任务管理
 - `21-synchronize-and-rsync/`：第二十一章，学习 synchronize 和 rsync 风格同步
+- `22-secrets-and-vault/`：第二十二章，学习 ansible-vault、敏感变量和 no_log
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -85,6 +87,7 @@
 - 然后进入 `19-users-and-groups/`
 - 然后进入 `20-cron-and-scheduled-tasks/`
 - 然后进入 `21-synchronize-and-rsync/`
+- 然后进入 `22-secrets-and-vault/`
 
 ## 文件约定
 

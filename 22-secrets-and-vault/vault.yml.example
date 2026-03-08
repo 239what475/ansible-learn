@@ -1,0 +1,6 @@
+# 这个文件是本地明文模板。
+# 复制成 `vault.yml` 后，请先按你自己的内容修改，再执行：
+# `uv run ansible-vault encrypt --encrypt-vault-id default vault.yml`
+# 加密完成后，真正被 playbook 读取的是本地的加密版 `vault.yml`。
+vault_demo_message: "hello from ansible-vault"
+vault_demo_token: "change-this-token"
