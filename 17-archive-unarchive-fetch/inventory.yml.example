@@ -1,0 +1,33 @@
+# 这一章通常直接复用 16-lineinfile-blockinfile-replace 生成的 inventory.yml。
+# 如果你想手动填写，也可以先复制本文件为 inventory.yml 再修改。
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_user: your-user
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    # `group` 是对 host 的分组，不是 Linux 里的用户组。
+    # 同一个 host 可以同时出现在多个 group 里；这通常表示“同一台主机属于多个组”。
+    # 例如 `node1` 既可以属于 `incus_nodes`，也可以同时属于别的组，比如 `ubuntu_hosts`。
+    # 这时它仍然是同一个 inventory host，`inventory_hostname` 也还是 `node1`。
+    #
+    # 不建议在同一个 inventory 里用同一个 host 名表示两台不同机器。
+    # 比如不要在两个 group 里都写 `node1`，却分别给它不同的 `ansible_host`；
+    # 这样会让 `hostvars['node1']`、`groups[...]`、变量覆盖关系都变得很混乱。
+    #
+    # 如果你确实想给同一台真实机器起两个“入口名”，可以写成两个不同的 inventory host 名，
+    # 再让它们的 `ansible_host` 指向同一个 IP；这更像“两个别名都连到同一台机器”。
+    # 例如：
+    #   web_alias:
+    #     ansible_host: 192.0.2.11
+    #   debug_alias:
+    #     ansible_host: 192.0.2.11
+    # 这种写法技术上可以，但初学阶段一般不建议滥用。
+    incus_nodes:
+      hosts:
+        node1:
+          ansible_host: 192.0.2.11
+        node2:
+          ansible_host: 192.0.2.12

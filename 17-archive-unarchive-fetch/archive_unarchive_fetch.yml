@@ -1,0 +1,137 @@
+- name: Learn archive unarchive and fetch on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    remote_demo_dir: /home/ubuntu/ansible-archive-demo
+    remote_source_dir: /home/ubuntu/ansible-archive-demo/source
+    remote_extract_dir: /home/ubuntu/ansible-archive-demo/extracted
+    remote_archive_file: /home/ubuntu/ansible-archive-demo/source.tar.gz
+    # `playbook_dir` 是 Ansible 自带的 magic variable，可以直接理解成“当前 playbook 所在目录”。
+    # 它不是 facts，也不是 inventory 变量；而是 Ansible 运行时直接提供的上下文信息。
+    # 这一类常用的 magic variables 还包括：
+    # - `inventory_hostname`：当前主机在 inventory 里的名字
+    # - `inventory_hostname_short`：当前主机的短名字
+    # - `group_names`：当前主机属于哪些 inventory 组
+    # - `groups`：所有 inventory 组与主机成员的对应表
+    # - `hostvars`：按主机名索引的一整张变量表
+    # - `ansible_play_hosts_all`：当前 play 涉及到的全部主机
+    # - `ansible_play_batch`：当前批次里的主机
+    # - `ansible_check_mode`：当前是不是 `--check` 预演模式
+    local_download_dir: "{{ playbook_dir }}/downloads"
+
+  tasks:
+    - name: Explain archive unarchive and fetch
+      # `archive` 用来把目标主机上的文件/目录打包成归档文件。
+      # `unarchive` 用来解包归档文件。
+      # `fetch` 用来把远程主机上的文件拉回控制端本地。
+      ansible.builtin.debug:
+        msg:
+          - "archive = 在远程主机上打包。"
+          - "unarchive = 在目标位置解包。"
+          - "fetch = 从远程拉回控制端。"
+      run_once: true
+
+    - name: Ensure remote demo directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - "{{ remote_demo_dir }}"
+        - "{{ remote_source_dir }}"
+        - "{{ remote_extract_dir }}"
+
+    - name: Create sample files in source directory
+      # 这里先准备两份简单文本，方便后面打包和解包后再对照。
+      # `loop` 默认的循环变量名是 `item`；这里故意改成 `file_item`，让含义更直观。
+      ansible.builtin.copy:
+        dest: "{{ remote_source_dir }}/{{ file_item.name }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          file_name = {{ file_item.name }}
+          file_role = {{ file_item.role }}
+      loop:
+        - { name: 'app.conf', role: 'config' }
+        - { name: 'notes.txt', role: 'note' }
+      loop_control:
+        loop_var: file_item
+
+    - name: Create one archive file from source directory
+      # `archive` 在远程主机上执行，输出也是远程主机上的归档文件。
+      # 这里会把 `source/` 目录打成 `source.tar.gz`。
+      # 这个模块通常不是调用系统里的 `zip`、`tar`、`gzip` 命令，而是依赖目标主机上的 Python 标准库，
+      # 比如 `tarfile`、`zipfile`、`gzip`、`bz2`、`lzma`。
+      # 所以像“系统里没有 zip 命令”这类问题，在 `community.general.archive` 这里通常不是同一种问题。
+      # 更关键的前提通常是：目标主机要有可用的 Python，以及对应格式需要的标准库支持。
+      # 当前这里 `format: gz` 且 `path` 是目录，可以先把它理解成在远程主机上生成一个 `tar.gz` 风格的归档文件。
+      community.general.archive:
+        path: "{{ remote_source_dir }}"
+        dest: "{{ remote_archive_file }}"
+        format: gz
+      register: archive_result
+
+    - name: Remove extracted directory before unarchive
+      # 为了更清楚观察 `unarchive` 的效果，这里先把旧的解压目录删掉再重建。
+      ansible.builtin.file:
+        path: "{{ remote_extract_dir }}"
+        state: absent
+
+    - name: Recreate extracted directory
+      ansible.builtin.file:
+        path: "{{ remote_extract_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Unarchive the archive on remote host
+      # `remote_src: true` 表示压缩包本身已经在远程主机上，不需要再从控制端上传。
+      # 这里还可以顺手观察一个细节：因为打包时传入的是 `source/` 这个目录，
+      # 解包后通常会得到 `{{ remote_extract_dir }}/source/...` 这样的结构，而不是把绝对路径原样展开进去。
+      ansible.builtin.unarchive:
+        src: "{{ remote_archive_file }}"
+        dest: "{{ remote_extract_dir }}"
+        remote_src: true
+
+    - name: Ensure local download directory exists on controller
+      # `fetch` 会把文件拉回控制端；这里先确保本地目录存在。
+      ansible.builtin.file:
+        path: "{{ local_download_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Fetch one archive file back to controller
+      # `fetch` 的 `dest` 指的是控制端本地目录。
+      # `flat: false` 时，`fetch` 不会只把文件直接放到 `downloads/`，而是会继续拼上：
+      # 1. 当前主机名目录；
+      # 2. 远程源文件的绝对路径。
+      # 所以如果远程文件是 `/home/ubuntu/ansible-archive-demo/source.tar.gz`，
+      # 拉回本地后通常会变成：`downloads/node1/home/ubuntu/ansible-archive-demo/source.tar.gz`。
+      # 这样设计是为了避免不同主机上的同名文件互相覆盖。
+      # 如果改成 `flat: true`，才更接近“直接放到 `downloads/` 下面一个文件名”。
+      ansible.builtin.fetch:
+        src: "{{ remote_archive_file }}"
+        dest: "{{ local_download_dir }}/"
+        flat: false
+
+    - name: Read one extracted file to verify content
+      # 根据前面的实际解包结果，这里读取的是 `extracted/source/app.conf`。
+      ansible.builtin.command: cat {{ remote_extract_dir }}/source/app.conf
+      register: extracted_file_content
+      changed_when: false
+
+    - name: Show archive and extraction results
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "archive_result.changed = {{ archive_result.changed }}"
+          - "extracted_file_content.stdout_lines = {{ extracted_file_content.stdout_lines }}"

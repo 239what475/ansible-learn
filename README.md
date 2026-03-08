@@ -29,6 +29,7 @@
 18. `14-become-and-privilege-escalation/README.md`
 19. `15-services-and-systemd/README.md`
 20. `16-lineinfile-blockinfile-replace/README.md`
+21. `17-archive-unarchive-fetch/README.md`
 
 ## 目录说明
 
@@ -49,6 +50,7 @@
 - `14-become-and-privilege-escalation/`：第十四章，学习 become、become_user 和提权范围
 - `15-services-and-systemd/`：第十五章，学习 service_facts、systemd_service 和服务状态管理
 - `16-lineinfile-blockinfile-replace/`：第十六章，学习 lineinfile、blockinfile 和 replace
+- `17-archive-unarchive-fetch/`：第十七章，学习 archive、unarchive 和 fetch
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -70,6 +72,7 @@
 - 然后进入 `14-become-and-privilege-escalation/`
 - 然后进入 `15-services-and-systemd/`
 - 然后进入 `16-lineinfile-blockinfile-replace/`
+- 然后进入 `17-archive-unarchive-fetch/`
 
 ## 文件约定
 
