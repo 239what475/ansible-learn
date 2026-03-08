@@ -39,6 +39,7 @@
 28. `24-handlers-meta-and-flush/README.md`
 29. `25-async-and-poll/README.md`
 30. `26-strategy-and-failure-control/README.md`
+31. `27-collections-and-galaxy/README.md`
 
 ## 目录说明
 
@@ -69,6 +70,7 @@
 - `24-handlers-meta-and-flush/`：第二十四章，学习 handler、notify 和 `meta: flush_handlers`
 - `25-async-and-poll/`：第二十五章，学习 async、poll、async_status 和后台任务轮询
 - `26-strategy-and-failure-control/`：第二十六章，学习 strategy、any_errors_fatal 和 max_fail_percentage
+- `27-collections-and-galaxy/`：第二十七章，学习 collections、FQCN、requirements.yml 和 ansible-galaxy
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -100,6 +102,7 @@
 - 然后进入 `24-handlers-meta-and-flush/`
 - 然后进入 `25-async-and-poll/`
 - 然后进入 `26-strategy-and-failure-control/`
+- 然后进入 `27-collections-and-galaxy/`
 
 ## 文件约定
 

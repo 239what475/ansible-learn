@@ -1,0 +1,17 @@
+---
+# `requirements.yml` 可以先理解成“这个 Ansible 项目依赖哪些 collections 的清单”。
+#
+# 最常见的安装方式是：
+# `uv run ansible-galaxy collection install -r requirements.yml`
+#
+# 这里的 `collections:` 和 playbook 里的 `collections:` 不是同一个层面的概念：
+# - 这个文件里的 `collections:`：声明项目依赖，需要安装什么；
+# - playbook 里的 `collections:`：声明这一段 play 解析短模块名时，要优先到哪些 collection 里找。
+collections:
+  # `ansible.posix` 是一个 collection 名。
+  # 你之前学过的 `ansible.posix.synchronize`，前半段就是 collection，后半段才是模块名。
+  - name: ansible.posix
+
+  # `community.general` 也是一个 collection 名。
+  # 这一章后面会实际用到它里面的 `archive` 模块。
+  - name: community.general

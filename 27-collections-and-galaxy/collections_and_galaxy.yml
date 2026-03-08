@@ -1,0 +1,172 @@
+- name: Observe collections on the controller
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    lesson_name: 27-collections-and-galaxy
+    # `ansible_playbook_python` 是 Ansible 自带的 magic variable，
+    # 可以先理解成“这次运行 ansible-playbook 时正在使用的 Python 解释器路径”。
+    #
+    # 当前仓库默认是 `uv + .venv`，所以这里顺手从它旁边推导出 `ansible-galaxy` 的路径。
+    #
+    # 这里的 `~` 是 Jinja 里的字符串拼接运算符，
+    # 可以先理解成“把左边和右边拼起来”。
+    # 所以这一句大致相当于：
+    # - 先用 `dirname` 取出 `ansible_playbook_python` 所在目录；
+    # - 再拼上 `/ansible-galaxy`。
+    galaxy_cmd: "{{ (ansible_playbook_python | dirname) ~ '/ansible-galaxy' }}"
+
+  tasks:
+    - name: Explain collections and galaxy basics
+      # `collection` 可以先理解成：
+      # - 一组按命名空间组织起来的模块、插件、角色和文档。
+      #
+      # 例如：
+      # - `ansible.builtin.command`
+      # - `community.general.archive`
+      #
+      # 这类完整写法叫 FQCN（Fully Qualified Collection Name），
+      # 可以先理解成：`collection_name.module_name`。
+      #
+      # `ansible-galaxy` 则是控制端上的管理工具，常用来：
+      # - 安装 collections
+      # - 查看已安装 collections
+      ansible.builtin.debug:
+        msg:
+          - "collection = 一组按命名空间组织起来的 Ansible 内容。"
+          - "FQCN 例如 ansible.builtin.command、community.general.archive。"
+          - "ansible-galaxy 是控制端管理 collection 的命令。"
+
+    - name: Show which ansible-galaxy command path is used
+      ansible.builtin.debug:
+        msg:
+          - "ansible_playbook_python = {{ ansible_playbook_python }}"
+          - "galaxy_cmd = {{ galaxy_cmd }}"
+          - "requirements_file = {{ playbook_dir }}/requirements.yml"
+
+    - name: List installed collections from the controller
+      # 这条任务直接在控制端执行 `ansible-galaxy collection list`。
+      #
+      # 注意这里查看的是“控制端已经安装了哪些 collections”，
+      # 不是远程主机上安装了什么。
+      ansible.builtin.command:
+        argv:
+          - "{{ galaxy_cmd }}"
+          - collection
+          - list
+      register: galaxy_collection_list
+      changed_when: false
+
+    - name: Show selected installed collections
+      # 这里故意只把和这一章最相关的两条挑出来，避免原始列表太长不好看。
+      # `select('search', ...)` 里用到的是 Jinja 过滤和测试机制，
+      # 可以先理解成“从 stdout_lines 里筛出包含这些 collection 名的行”。
+      #
+      # 这一段完整拆开可以先这样理解：
+      # - `galaxy_collection_list.stdout_lines`：前面命令输出按行拆开的列表；
+      # - `select('search', 'ansible\.posix|community\.general')`：
+      #   只保留能匹配这个正则的行；
+      # - `| list`：把筛选结果明确变成列表，方便 debug 输出。
+      #
+      # 这里的正则里还有两个常见符号：
+      # - `\.`：匹配真正的点号 `.`，因为正则里的 `.` 原本有特殊含义；
+      # - `|`：正则里的“或”，表示匹配 `ansible.posix` 或 `community.general`。
+      ansible.builtin.debug:
+        msg:
+          - "selected_collection_lines = {{ galaxy_collection_list.stdout_lines | select('search', 'ansible\\.posix|community\\.general') | list }}"
+
+- name: Use one collection module on managed hosts
+  hosts: incus_nodes
+  gather_facts: false
+  # 这一章这里故意演示 play 级别的 `collections:`。
+  #
+  # 可以先理解成：
+  # - 下面如果直接写短模块名 `archive:`；
+  # - Ansible 会优先到 `community.general` 这个 collection 里找它。
+  #
+  # 所以前面更完整的 FQCN：
+  # `community.general.archive`
+  # 在这个 play 里就可以故意简写成：
+  # `archive:`
+  #
+  # 这只是为了教学演示 collection 解析机制。
+  # 当前仓库大部分章节仍然更偏向显式写 FQCN，便于初学者看清模块来源。
+  collections:
+    - community.general
+
+  vars:
+    remote_demo_dir: /home/ubuntu/ansible-collection-demo
+    remote_source_dir: "{{ remote_demo_dir }}/source"
+    remote_archive_file: "{{ remote_demo_dir }}/source.tar.gz"
+
+  tasks:
+    - name: Explain short module name under collections
+      ansible.builtin.debug:
+        msg:
+          - "这个 play 已经声明 collections: [community.general]。"
+          - "所以下面的 archive: 可以理解成 community.general.archive: 的短写法。"
+
+    - name: Ensure demo directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      loop:
+        - "{{ remote_demo_dir }}"
+        - "{{ remote_source_dir }}"
+
+    - name: Write sample files for the archive demo
+      # 默认循环变量名是 `item`。
+      # 这里故意把它改成 `file_item`，这样读起来更清楚。
+      ansible.builtin.copy:
+        dest: "{{ remote_source_dir }}/{{ file_item.name }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          file_name = {{ file_item.name }}
+          file_role = {{ file_item.role }}
+      loop:
+        - { name: 'app.conf', role: 'config' }
+        - { name: 'notes.txt', role: 'note' }
+      loop_control:
+        loop_var: file_item
+
+    - name: Create one archive with community.general archive module
+      # 这里写的是短模块名 `archive:`。
+      # 因为上面这个 play 已经声明了 `collections: [community.general]`，
+      # 所以这里实际解析到的是：
+      # `community.general.archive`
+      #
+      # `community.general.archive` 可以先理解成：
+      # - 把目标主机上的文件或目录打包成一个归档文件；
+      # - 常见用途例如备份目录、打包配置、为后续下载做准备。
+      #
+      # 这一章里它的双重作用是：
+      # - 一方面，实际在远程主机上把 `remote_source_dir` 打成归档；
+      # - 另一方面，也顺手演示“这个模块来自 community.general collection”。
+      #
+      # 这也是为什么 `requirements.yml` 里要声明 `community.general`。
+      archive:
+        path: "{{ remote_source_dir }}"
+        dest: "{{ remote_archive_file }}"
+        format: gz
+      register: archive_result
+
+    - name: Check archived file state
+      ansible.builtin.stat:
+        path: "{{ remote_archive_file }}"
+      register: archive_file_stat
+
+    - name: Show archive result summary
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "archive_result.changed = {{ archive_result.changed }}"
+          - "archive_exists = {{ archive_file_stat.stat.exists }}"
+          - "archive_size = {{ archive_file_stat.stat.size | default('n/a') }}"
+          - "这里如果 archive 成功，就说明 collection 模块已经可用。"
