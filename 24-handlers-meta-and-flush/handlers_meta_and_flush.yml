@@ -1,0 +1,149 @@
+- name: Learn handlers meta and flush on Incus nodes
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    lesson_name: 24-handlers-meta-and-flush
+    remote_demo_dir: /home/ubuntu/ansible-handler-demo
+    primary_config_file: "{{ remote_demo_dir }}/primary.conf"
+    secondary_config_file: "{{ remote_demo_dir }}/secondary.conf"
+    handler_log_file: "{{ remote_demo_dir }}/handler-runs.log"
+
+  handlers:
+    - name: record handler run
+      # handler 本质上还是任务，只是默认不会在 `notify` 当下立刻执行。
+      # 这里故意每执行一次就往日志文件里追加一行，方便观察它到底真正跑了几次。
+      ansible.builtin.shell: |
+        count=0
+        if [ -f "{{ handler_log_file }}" ]; then
+          count=$(wc -l < "{{ handler_log_file }}")
+        fi
+        echo "handler run #$((count + 1)) on {{ inventory_hostname }}" >> "{{ handler_log_file }}"
+      changed_when: true
+
+  tasks:
+    - name: Explain handler and flush basics
+      ansible.builtin.debug:
+        msg:
+          - "handler 默认不会在 `notify` 的那一刻立刻执行，而是先排队。"
+          - "同一个 handler 在同一轮普通任务里即使被多次 `notify`，通常也只会执行一次。"
+          - "如果有多个不同 handler，执行顺序通常看 `handlers:` 里的定义顺序，而不是看 notify 出现的先后顺序。"
+          - "所以像通知顺序 `1 -> 2 -> 1`，通常会先去重成 `1、2`，再按 handler 定义顺序执行。"
+          - "`meta: flush_handlers` 的作用就是：不要等到 play 末尾，现在立刻把已通知的 handler 跑掉。"
+      run_once: true
+
+    - name: Ensure handler demo directory exists
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Remove old handler log before demo
+      # 为了让这次观察更直观，这里先清掉旧日志。
+      ansible.builtin.file:
+        path: "{{ handler_log_file }}"
+        state: absent
+
+    - name: Write first config and notify handler
+      # 这条任务如果发生 `changed`，就会 `notify: record handler run`。
+      # 这里的 `notify` 可以先理解成“发一个提醒”，不是“现在立刻执行 handler”。
+      #
+      # 所谓“排队等待执行”，可以先这样理解：
+      # - 当前这条普通任务先正常跑完；
+      # - 如果它发生了 changed，Ansible 就把 `record handler run` 记到一个待执行列表里；
+      # - 然后 Ansible 继续往下执行后面的普通任务；
+      # - 等到了默认同步点，或者你显式写了 `meta: flush_handlers`，才真正去执行这个 handler。
+      #
+      # 所以这里写了 `notify` 之后：
+      # - 不是“不会执行”；
+      # - 而是“先记下来，稍后再统一执行”。
+      #
+      # 还有一个关键点：
+      # - 只有当前任务结果是 `changed` 时，handler 才通常会被加入待执行列表；
+      # - 如果当前任务结果只是 `ok`，说明它没有真正改动系统状态，那通常就不会触发 handler。
+      #
+      # 对 `copy` 来说，常见判断逻辑可以先这样理解：
+      # - 如果目标文件内容变了，或者 owner / group / mode 变了，就会是 `changed`；
+      # - 如果内容和这些属性本来就已经一致，那通常就是 `ok`。
+      ansible.builtin.copy:
+        dest: "{{ primary_config_file }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          lesson_name = {{ lesson_name }}
+          file_name = primary.conf
+      notify: record handler run
+
+    - name: Write second config and notify same handler again
+      # 这里故意再次通知同一个 handler。
+      # 这样等会儿观察日志时，就能看到：
+      # - 前面已经把同一个 handler 记进待执行列表；
+      # - 这里再次 `notify` 同一个 handler 时，通常不会在列表里再堆很多份；
+      # - 到第一次 flush 时，它通常仍然只真正执行一次。
+      #
+      # 如果这条任务这次只是 `ok`，没有真正改动文件内容，那即使写了 `notify`，
+      # 也通常不会给 handler 新增一次待执行记录。
+      ansible.builtin.copy:
+        dest: "{{ secondary_config_file }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          lesson_name = {{ lesson_name }}
+          file_name = secondary.conf
+      notify: record handler run
+
+    - name: Check handler log before flush
+      # 到这一步为止，handler 还只是“被通知了”，通常还没有真正执行。
+      ansible.builtin.stat:
+        path: "{{ handler_log_file }}"
+      register: handler_log_before_flush
+
+    - name: Show handler log state before flush
+      ansible.builtin.debug:
+        msg:
+          - "handler_log_exists_before_flush = {{ handler_log_before_flush.stat.exists }}"
+          - "如果这里还是 False，就说明 handler 还只是排队中，没有立刻执行。"
+
+    - name: Force queued handlers to run now
+      # `meta: flush_handlers` 会立刻执行当前已经排队的 handlers。
+      # 它不是普通模块参数，而是 Ansible 的特殊 meta 动作。
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read handler log after first flush
+      ansible.builtin.command: cat {{ handler_log_file }}
+      register: handler_log_after_first_flush
+      changed_when: false
+
+    - name: Show handler log after first flush
+      ansible.builtin.debug:
+        msg:
+          - "handler_log_after_first_flush.stdout_lines = {{ handler_log_after_first_flush.stdout_lines }}"
+          - "这里如果只有一行，就说明前面两次 notify 同一个 handler，flush 时通常只真正执行了一次。"
+
+    - name: Update second config and notify handler again
+      # 这里再改一次文件，重新通知同一个 handler。
+      # 这样就能观察到：handler 在第一次 flush 之后，仍然可以再次被排队并再次执行。
+      ansible.builtin.lineinfile:
+        path: "{{ secondary_config_file }}"
+        line: "feature_flag = enabled"
+        create: true
+      notify: record handler run
+
+    - name: Force queued handlers to run again
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read handler log after second flush
+      ansible.builtin.command: cat {{ handler_log_file }}
+      register: handler_log_after_second_flush
+      changed_when: false
+
+    - name: Show final handler log
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "handler_log_after_second_flush.stdout_lines = {{ handler_log_after_second_flush.stdout_lines }}"
+          - "这里如果已经有两行，就说明同一个 handler 在第一次 flush 后，后面再次被 notify 时可以再次执行。"
