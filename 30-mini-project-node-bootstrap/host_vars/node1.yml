@@ -1,0 +1,3 @@
+# 主机级变量会覆盖更宽范围的组变量。
+# 所以这里的 `bootstrap_role_label` 会覆盖 group_vars/incus_nodes.yml 里的同名值。
+bootstrap_role_label: primary-node

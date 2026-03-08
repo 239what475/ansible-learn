@@ -1,0 +1,7 @@
+- name: record bootstrap template update
+  # handler 里也可以用普通任务模块。
+  # 这里故意用一条很小的 shell，把“模板被更新过”记到日志里。
+  ansible.builtin.shell: |
+    ts=$(date -Iseconds)
+    printf 'template updated at %s on %s\n' "$ts" '{{ inventory_hostname }}' >> '{{ bootstrap_handler_log }}'
+  changed_when: true

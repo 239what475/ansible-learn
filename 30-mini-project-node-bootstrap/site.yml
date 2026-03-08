@@ -1,0 +1,64 @@
+- name: Bootstrap managed nodes with one reusable role
+  hosts: incus_nodes
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Explain mini project structure
+      # 这一章的重点不是某一个新模块，
+      # 而是把前面学过的内容串成一个更接近真实项目的结构：
+      # - `group_vars` / `host_vars`
+      # - `role`
+      # - `template`
+      # - `handler`
+      # - `cron`
+      # - `service`
+      ansible.builtin.debug:
+        msg:
+          - "这是一套 mini project，入口是 site.yml，核心逻辑在 roles/node_bootstrap/。"
+          - "变量会从 group_vars 和 host_vars 自动加载。"
+
+  roles:
+    - role: node_bootstrap
+
+- name: Write one controller-side summary report
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    controller_report_dir: "{{ playbook_dir }}/reports"
+    controller_report_file: "{{ controller_report_dir }}/controller-summary.yml"
+
+  tasks:
+    - name: Ensure local report directory exists
+      ansible.builtin.file:
+        path: "{{ controller_report_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Write controller summary report from hostvars
+      # 这一段在控制端本机执行，
+      # 通过 `groups['incus_nodes']` 和 `hostvars[...]` 把每台主机的最终结果汇总起来。
+      ansible.builtin.copy:
+        dest: "{{ controller_report_file }}"
+        mode: '0644'
+        content: |
+          project_name: {{ hostvars[groups['incus_nodes'][0]].bootstrap_project_name }}
+          managed_hosts:
+          {% for host_name in groups['incus_nodes'] %}
+            - inventory_hostname: {{ host_name }}
+              ansible_host: {{ hostvars[host_name].ansible_host }}
+              bootstrap_role_label: {{ hostvars[host_name].bootstrap_role_label }}
+              bootstrap_base_dir: {{ hostvars[host_name].bootstrap_base_dir }}
+              bootstrap_summary_file: {{ hostvars[host_name].bootstrap_summary_file }}
+          {% endfor %}
+
+    - name: Read controller summary report
+      ansible.builtin.command: cat {{ controller_report_file }}
+      register: controller_report_content
+      changed_when: false
+
+    - name: Show controller summary lines
+      ansible.builtin.debug:
+        var: controller_report_content.stdout_lines

@@ -1,0 +1,149 @@
+- name: Explain role responsibilities
+  # role 可以先理解成“按固定目录结构组织起来的一组功能模块”。
+  # 这个 role 负责做一套最小节点初始化：
+  # - 校验前提
+  # - 创建用户和目录
+  # - 生成配置与汇总文件
+  # - 写入 cron
+  # - 记录 handler 执行日志
+  #
+  # 这一章里很多任务都带了 `tags`，但要注意：
+  # - 普通 tag 只是“给任务贴标签”；
+  # - 如果你直接运行 `ansible-playbook site.yml`，而没有带 `--tags` / `--skip-tags`，
+  #   这些任务通常还是会照常执行；
+  # - 只有你显式用 `--tags users`、`--skip-tags cron` 这类参数时，tag 才真正参与筛选。
+  #
+  # 也就是说：
+  # - 普通 tag 默认不会让任务自动跳过；
+  # - 特殊 tag `never` 才是“默认跳过”的那类写法。
+  ansible.builtin.debug:
+    msg:
+      - "role = node_bootstrap"
+      - "bootstrap_role_label = {{ bootstrap_role_label }}"
+      - "bootstrap_base_dir = {{ bootstrap_base_dir }}"
+  tags:
+    - always
+    - intro
+
+- name: Assert this demo runs on Debian-family hosts
+  # `assert` 把“我认为应该成立的前提”写成明确检查。
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - ansible_user is defined
+      - bootstrap_demo_user is defined
+    success_msg: "当前主机满足这个 mini project 的基础前提。"
+    fail_msg: "当前主机不满足这个 mini project 的基础前提，请先检查环境。"
+  tags:
+    - precheck
+
+- name: Ensure demo group exists
+  ansible.builtin.group:
+    name: "{{ bootstrap_demo_group }}"
+    state: present
+  tags:
+    - users
+
+- name: Ensure demo user exists
+  ansible.builtin.user:
+    name: "{{ bootstrap_demo_user }}"
+    group: "{{ bootstrap_demo_group }}"
+    shell: "{{ bootstrap_demo_shell }}"
+    create_home: true
+    state: present
+  tags:
+    - users
+
+- name: Ensure project directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ bootstrap_base_dir }}", owner: "{{ bootstrap_demo_user }}", group: "{{ bootstrap_demo_group }}", mode: '0755' }
+    - { path: "{{ bootstrap_log_dir }}", owner: "{{ bootstrap_demo_user }}", group: "{{ bootstrap_demo_group }}", mode: '0755' }
+  tags:
+    - files
+
+- name: Ensure ssh service is started
+  # 这里故意用更通用的 `service`，而不是把 role 写死在 systemd 上。
+  ansible.builtin.service:
+    name: "{{ bootstrap_service_name }}"
+    state: started
+  tags:
+    - service
+
+- name: Gather service facts for final summary
+  ansible.builtin.service_facts:
+  tags:
+    - service
+    - summary
+
+- name: Render environment file
+  # `template` 模块会去当前 role 的 `templates/` 目录找模板文件。
+  # 所以这里的：
+  # - `src: node.env.j2`
+  # 实际对应的是：
+  # - `roles/node_bootstrap/templates/node.env.j2`
+  #
+  # 也就是说：
+  # - `templates/` 目录只是放模板资源；
+  # - 真正“使用模板”的，是这里这条 `ansible.builtin.template` 任务。
+  ansible.builtin.template:
+    src: node.env.j2
+    dest: "{{ bootstrap_env_file }}"
+    owner: "{{ bootstrap_demo_user }}"
+    group: "{{ bootstrap_demo_group }}"
+    mode: '0644'
+  notify: record bootstrap template update
+  tags:
+    - files
+    - config
+
+- name: Render node summary file
+  # 这一条同样会去当前 role 的 `templates/` 目录找：
+  # - `roles/node_bootstrap/templates/node-summary.yml.j2`
+  #
+  # 模板本身不会因为放进 `templates/` 就自动生效，
+  # 必须有 `template` 任务显式引用 `src:`，它才会被渲染并写到目标主机。
+  ansible.builtin.template:
+    src: node-summary.yml.j2
+    dest: "{{ bootstrap_summary_file }}"
+    owner: "{{ bootstrap_demo_user }}"
+    group: "{{ bootstrap_demo_group }}"
+    mode: '0644'
+  notify: record bootstrap template update
+  tags:
+    - summary
+
+- name: Ensure one cron job exists in /etc/cron.d
+  # 这里用 `cron_file` 而不是某个用户自己的 crontab，
+  # 是为了让示例更接近“项目统一下发一条系统级定时任务文件”的感觉。
+  ansible.builtin.cron:
+    cron_file: "{{ bootstrap_cron_file }}"
+    name: ansible bootstrap heartbeat
+    user: "{{ bootstrap_demo_user }}"
+    minute: '*/30'
+    job: "printf '%s %s\\n' \"$(date -Iseconds)\" '{{ inventory_hostname }}' >> {{ bootstrap_cron_log }}"
+  tags:
+    - cron
+
+- name: Flush handlers so the log is written before we read outputs
+  ansible.builtin.meta: flush_handlers
+  tags:
+    - summary
+
+- name: Read rendered node summary file
+  ansible.builtin.command: cat {{ bootstrap_summary_file }}
+  register: bootstrap_summary_content
+  changed_when: false
+  tags:
+    - summary
+
+- name: Show rendered node summary lines
+  ansible.builtin.debug:
+    var: bootstrap_summary_content.stdout_lines
+  tags:
+    - summary

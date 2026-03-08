@@ -1,0 +1,16 @@
+# 这里放的是这一章 mini project 的公共变量。
+# 这些变量不是 Ansible 自带的 magic variables，而是我们自己给项目起的普通变量名。
+bootstrap_project_name: ansible-node-bootstrap-demo
+bootstrap_demo_group: ansible_bootstrap
+bootstrap_demo_user: ansible_bootstrap
+bootstrap_demo_shell: /bin/bash
+bootstrap_base_dir: /opt/ansible-node-bootstrap
+bootstrap_log_dir: /var/log/ansible-node-bootstrap
+bootstrap_env_file: "{{ bootstrap_base_dir }}/node.env"
+bootstrap_summary_file: "{{ bootstrap_base_dir }}/node-summary.yml"
+bootstrap_handler_log: "{{ bootstrap_log_dir }}/handler.log"
+bootstrap_cron_log: "{{ bootstrap_log_dir }}/heartbeat.log"
+bootstrap_cron_file: ansible_bootstrap_heartbeat
+bootstrap_service_name: ssh
+bootstrap_service_fact_key: ssh.service
+bootstrap_message: managed by ansible mini project

@@ -1,0 +1,4 @@
+# 这个文件只对 `incus_nodes` 组生效。
+# 用这种方式可以把“这一组主机共享的业务默认值”集中放在一起。
+bootstrap_role_label: generic-node
+bootstrap_feature_flag: true

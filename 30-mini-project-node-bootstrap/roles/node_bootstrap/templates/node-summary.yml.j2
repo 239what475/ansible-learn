@@ -1,0 +1,14 @@
+inventory_hostname: {{ inventory_hostname }}
+ansible_host: {{ ansible_host }}
+ansible_user: {{ ansible_user }}
+bootstrap_project_name: {{ bootstrap_project_name }}
+bootstrap_role_label: {{ bootstrap_role_label }}
+bootstrap_feature_flag: {{ bootstrap_feature_flag }}
+bootstrap_base_dir: {{ bootstrap_base_dir }}
+bootstrap_env_file: {{ bootstrap_env_file }}
+bootstrap_summary_file: {{ bootstrap_summary_file }}
+bootstrap_message: {{ bootstrap_message }}
+bootstrap_timezone_label: {{ bootstrap_timezone_label }}
+service_manager: {{ ansible_facts['service_mgr'] }}
+ssh_service_state: {{ ansible_facts.services[bootstrap_service_fact_key].state | default('unknown') }}
+ssh_service_source: {{ ansible_facts.services[bootstrap_service_fact_key].source | default('unknown') }}

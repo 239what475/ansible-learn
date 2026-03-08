@@ -1,0 +1,3 @@
+# role defaults 是 role 自带的默认值。
+# 如果同名变量在 group_vars / host_vars 里也定义了，通常会被更具体的值覆盖。
+bootstrap_timezone_label: Asia/Shanghai
