@@ -1,0 +1,152 @@
+- name: Learn services and systemd on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # 这一章默认会管理系统服务，所以直接在 play 层开启 become。
+  # 这也能顺手对应上一章学到的“play / block / task 三层作用范围”。
+  gather_facts: false
+
+  vars:
+    service_name: ssh
+    # `service_facts` 里常见的键名通常是完整 unit 名，比如 `ssh.service`。
+    service_unit_name: ssh.service
+    remote_report_dir: /home/ubuntu/ansible-service-demo
+    remote_report_file: /home/ubuntu/ansible-service-demo/ssh-service-report.txt
+
+  tasks:
+    - name: Explain service_facts systemd_service and service
+      # `service_facts` 用来收集当前系统里服务的状态信息。
+      # 收集后，这些信息会出现在 `ansible_facts.services` 里。
+      # `systemd_service` 适合 systemd 环境；`service` 则是更通用的服务管理入口。
+      ansible.builtin.debug:
+        msg:
+          - "service_facts = 收集系统服务信息。"
+          - "systemd_service = 管理 systemd 服务状态。"
+          - "service = 更通用的服务管理模块。"
+      run_once: true
+
+    - name: Collect minimal system facts for service manager
+      # `ansible_facts['service_mgr']` 来自系统 facts，不是 `service_facts` 自己提供的。
+      # 所以这里先收集一小部分通用系统 facts，后面才能判断当前主机是不是 systemd 环境。
+      ansible.builtin.setup:
+        gather_subset:
+          - '!all'
+          - min
+
+    - name: Collect service facts
+      # 这条任务不会直接修改服务状态；它只是把服务信息读进 `ansible_facts.services`。
+      # 也可以先记成：如果不先执行 `service_facts`，通常就不要指望 `ansible_facts.services` 已经可用。
+      ansible.builtin.service_facts:
+
+    - name: Show current ssh service facts
+      # `ansible_facts.services` 可以先理解成“按服务名索引的一张服务状态表”。
+      # 这张表的 key 通常是服务名；在当前 Ubuntu + systemd 环境里，常见会像 `ssh.service` 这样带 `.service` 后缀。
+      # 但这不是所有系统都必须长成一样：如果换成别的服务管理器，服务键名和字段细节可能会有所不同。
+      # 它不是只给 systemd 用的，而是一个更通用的服务事实表；不同服务管理器收集到的结果都会汇总到这里。
+      # 所以你可以把它先理解成“统一出口”：不管底层是 systemd、sysv、upstart 还是 openrc，最后都尽量放进 `ansible_facts.services`。
+      # 真正区分当前这条服务记录来自哪种服务管理器的，通常是里面的 `source` 字段。
+      # 例如这一章当前环境里常见会看到：`source = systemd`、`state = running`、`status = enabled`。
+      # 其中：
+      # - `source` 表示这条服务信息来自哪个服务管理器
+      # - `state` 表示服务当前是不是 running / stopped 等运行状态
+      # - `status` 更偏向 enable/disable 这类“是否开机自启”的状态
+      # 也要注意：不是所有服务管理器都会返回完全一样的字段和值，所以跨平台写法通常要多配合 `default(...)`。
+      # 这里用 `default({})` 是为了避免服务键不存在时调试输出报错。
+      ansible.builtin.debug:
+        msg:
+          - "service_unit_name = {{ service_unit_name }}"
+          - "service_info = {{ ansible_facts.services[service_unit_name] | default({}) }}"
+
+    - name: Assert ssh service fact exists
+      # 这里先确认 `service_facts` 里确实能找到 `ssh.service`。
+      ansible.builtin.assert:
+        that:
+          - service_unit_name in ansible_facts.services
+        fail_msg: "没有在 ansible_facts.services 里找到 {{ service_unit_name }}。"
+        success_msg: "已找到 {{ service_unit_name }} 的服务信息。"
+
+    - name: Ensure report directory exists
+      # 虽然这一章 play 级已经开启了 become，但这里写入的是 ubuntu 用户家目录，
+      # 所以仍然把 owner/group 明确设回 ssh 登录用户，避免文件归属都变成 root。
+      ansible.builtin.file:
+        path: "{{ remote_report_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Show current service manager
+      # `ansible_facts['service_mgr']` 表示当前系统正在使用哪种服务管理器。
+      # 当前实验环境通常会是 `systemd`。
+      ansible.builtin.debug:
+        msg:
+          - "service_mgr = {{ ansible_facts['service_mgr'] | default('unknown') }}"
+
+    - name: Manage ssh only on systemd hosts
+      # 这是更稳的 `systemd_service` 写法：先判断当前系统是不是 systemd，再决定要不要执行。
+      # 如果不是 systemd，这条任务会被跳过，而不是直接报错。
+      ansible.builtin.systemd_service:
+        name: "{{ service_name }}"
+        state: started
+        enabled: true
+      when: ansible_facts['service_mgr'] == 'systemd'
+      register: ssh_service_result_systemd
+
+    - name: Manage ssh with generic service module on non-systemd hosts
+      # 如果当前主机不是 systemd 环境，就退回到更通用的 `ansible.builtin.service`。
+      # 它更适合需要兼容多种 init 系统的场景。
+      ansible.builtin.service:
+        name: "{{ service_name }}"
+        state: started
+        enabled: true
+      when: ansible_facts['service_mgr'] != 'systemd'
+      register: ssh_service_result_generic
+
+    - name: Build one unified service result summary
+      # 上面两条任务二选一执行；这里把结果整理成统一变量，后面写报告时就不用分支判断了。
+      # 这里的 `>-` 是 YAML 的多行字符串写法，可以先理解成“把下面几行折叠成一个值”。
+      # 它很适合拿来写这种较长的 Jinja 表达式，比全部挤成一行更容易读。
+      ansible.builtin.set_fact:
+        ssh_management_backend: "{{ 'systemd_service' if ansible_facts['service_mgr'] == 'systemd' else 'service' }}"
+        ssh_service_changed: >-
+          {{
+            ssh_service_result_systemd.changed
+            if ansible_facts['service_mgr'] == 'systemd'
+            else ssh_service_result_generic.changed
+          }}
+
+    - name: Re-collect service facts after ensuring state
+      # 因为前面可能改变了服务状态，所以这里再收集一次 facts，方便对照确认最终结果。
+      ansible.builtin.service_facts:
+
+    - name: Assert ssh service is running now
+      # `state` 是当前运行状态，常见值会有 running / stopped 等。
+      # `status` 里还能看到更细的 systemd 信息，但初学阶段先盯住最核心的状态即可。
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services[service_unit_name].state == 'running'
+        fail_msg: "{{ service_unit_name }} 当前不是 running。"
+        success_msg: "{{ service_unit_name }} 当前处于 running 状态。"
+
+    - name: Write one service report file
+      # 这里把执行结果和最终服务状态写成一个普通文件，方便你回头对照阅读。
+      ansible.builtin.copy:
+        dest: "{{ remote_report_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          service_unit_name = {{ service_unit_name }}
+          ssh_management_backend = {{ ssh_management_backend }}
+          ssh_service_changed = {{ ssh_service_changed }}
+          service_state = {{ ansible_facts.services[service_unit_name].state }}
+          service_status = {{ ansible_facts.services[service_unit_name].status | default('n/a') }}
+
+    - name: Read service report file
+      ansible.builtin.command: cat {{ remote_report_file }}
+      register: service_report
+      changed_when: false
+
+    - name: Show service report lines
+      ansible.builtin.debug:
+        var: service_report.stdout_lines
