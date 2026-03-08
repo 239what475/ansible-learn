@@ -1,0 +1,128 @@
+- name: Learn wait_for and retries on Incus nodes
+  # `hosts: incus_nodes` 表示这一章会在 `incus_nodes` 组里的每台主机上执行。
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    lesson_name: 18-wait-for-and-retries
+    remote_demo_dir: /home/ubuntu/ansible-wait-demo
+    delayed_file: "{{ remote_demo_dir }}/delayed-ready.txt"
+    retry_marker_file: "{{ remote_demo_dir }}/retry-marker.txt"
+
+  tasks:
+    - name: Explain wait_for and retries
+      ansible.builtin.debug:
+        msg:
+          - "wait_for = 等某个条件成立，比如文件出现、端口可连。"
+          - "until + retries + delay = 重复执行同一条任务，直到条件满足。"
+          - "这两种都像在\"等待\"，但一个更像等外部状态变化，一个更像反复重试任务本身。"
+      run_once: true
+
+    - name: Ensure demo directory exists
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Remove old delayed file before wait_for demo
+      # 先删掉旧文件，保证这次运行真的需要等待它出现。
+      ansible.builtin.file:
+        path: "{{ delayed_file }}"
+        state: absent
+
+    - name: Start one delayed file creation in background
+      # 这里故意让文件过 2 秒后才出现，用来演示 `wait_for` 的意义。
+      # `shell` 只是为了模拟“外部状态稍后变化”，重点不在 shell 本身。
+      #
+      # 这一行可以拆成下面几部分理解：
+      # - `bash -lc '...'`：启动一个 bash，并执行引号里的那段命令。
+      # - `sleep 2; ...`：先等 2 秒，再执行后面的写文件动作。
+      # - `printf "ready\n" > "{{ delayed_file }}"`：把 `ready` 这一行写进目标文件。
+      # - `nohup`：让这个子进程在当前任务结束后也继续跑，不会因为当前 shell 退出就立刻中断。
+      # - `>/dev/null 2>&1`：把标准输出和标准错误都丢弃掉，避免在终端里看到这条后台命令的输出。
+      # - `&`：把整条命令放到后台执行；这样当前 Ansible 任务不会卡住等 2 秒，而是立刻继续往下走。
+      ansible.builtin.shell: |
+        nohup bash -lc 'sleep 2; printf "ready\n" > "{{ delayed_file }}"' >/dev/null 2>&1 &
+      register: delayed_writer
+      changed_when: true
+
+    - name: Wait until delayed file exists on remote host
+      # `wait_for` 不是重新跑前一个任务，而是单纯等待某个条件成立。
+      # 这里等待的是：远程主机上的 `{{ delayed_file }}` 出现。
+      ansible.builtin.wait_for:
+        path: "{{ delayed_file }}"
+        timeout: 10
+
+    - name: Wait until ssh port is reachable from controller
+      # 这里把任务委托给控制端执行，所以等待动作发生在本机，而不是远程主机里。
+      # `wait_for` 也常用于等端口可连，例如等 SSH、HTTP、数据库端口起来。
+      # 当前这套教程里 `ansible_connection: ssh`，所以这里的 `ansible_port` 可以先理解成 SSH 端口。
+      # 默认通常是 `22`；如果目标主机把 SSH 改到别的端口，比如 `2222`，这里也会跟着变。
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ ansible_port | int }}"
+        timeout: 5
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Remove retry marker before until demo
+      # 这一节后面会故意让同一条任务“第一次失败、第二次成功”。
+      ansible.builtin.file:
+        path: "{{ retry_marker_file }}"
+        state: absent
+
+    - name: Retry one task until it succeeds
+      # `until`、`retries`、`delay` 会作用在“当前这条任务”上。
+      # 可以先这样理解：
+      # - 先执行一次当前任务；
+      # - 如果 `until` 条件还没满足，就等待 `delay` 秒；
+      # - 然后再试，最多试到 `retries` 允许的轮数。
+      #
+      # 这里故意设计成：
+      # - 第一次执行时文件还不存在，于是创建 marker 后返回失败；
+      # - 第二次执行时 marker 已存在，于是返回成功。
+      #
+      # `-f` 可以先理解成 Shell 里的“是不是普通文件”判断；
+      # 这里等价于在问：`{{ retry_marker_file }}` 这个路径现在是不是已经有一个文件了。
+      #
+      # 这里外面的双引号主要是给 Shell 用的，不是 Jinja 必需的语法。
+      # Jinja 会先把 `{{ retry_marker_file }}` 渲染成真实路径，然后 Shell 再执行最终命令。
+      # 加上双引号是更稳妥的 Shell 写法，能避免路径里有空格或特殊字符时被错误拆分。
+      #
+      # `register` 拿到的是“最后一次尝试”的结果；
+      # `retry_probe.attempts` 则能帮助你看到总共尝试了几轮。
+      ansible.builtin.shell: |
+        if [ -f "{{ retry_marker_file }}" ]; then
+          echo "second attempt succeeds"
+          exit 0
+        fi
+        touch "{{ retry_marker_file }}"
+        echo "first attempt fails on purpose"
+        exit 1
+      register: retry_probe
+      changed_when: false
+      retries: 3
+      delay: 1
+      until: retry_probe.rc == 0
+
+    - name: Show retry result
+      ansible.builtin.debug:
+        msg:
+          - "retry_probe.rc = {{ retry_probe.rc }}"
+          - "retry_probe.attempts = {{ retry_probe.attempts | default('n/a') }}"
+          - "retry_probe.stdout = {{ retry_probe.stdout }}"
+
+    - name: Read delayed file content
+      ansible.builtin.command: cat {{ delayed_file }}
+      register: delayed_file_content
+      changed_when: false
+
+    - name: Show final wait and retry results
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "delayed_writer.changed = {{ delayed_writer.changed }}"
+          - "delayed_file_content.stdout = {{ delayed_file_content.stdout }}"
+          - "retry_probe.stdout = {{ retry_probe.stdout }}"
