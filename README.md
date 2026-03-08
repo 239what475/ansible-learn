@@ -40,6 +40,7 @@
 29. `25-async-and-poll/README.md`
 30. `26-strategy-and-failure-control/README.md`
 31. `27-collections-and-galaxy/README.md`
+32. `28-debugging-and-troubleshooting/README.md`
 
 ## 目录说明
 
@@ -71,6 +72,7 @@
 - `25-async-and-poll/`：第二十五章，学习 async、poll、async_status 和后台任务轮询
 - `26-strategy-and-failure-control/`：第二十六章，学习 strategy、any_errors_fatal 和 max_fail_percentage
 - `27-collections-and-galaxy/`：第二十七章，学习 collections、FQCN、requirements.yml 和 ansible-galaxy
+- `28-debugging-and-troubleshooting/`：第二十八章，学习控制端与远程主机的调试和排错思路
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -103,6 +105,7 @@
 - 然后进入 `25-async-and-poll/`
 - 然后进入 `26-strategy-and-failure-control/`
 - 然后进入 `27-collections-and-galaxy/`
+- 然后进入 `28-debugging-and-troubleshooting/`
 
 ## 文件约定
 

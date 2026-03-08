@@ -1,0 +1,173 @@
+- name: Inspect inventory from the controller
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    # `playbook_dir` 是 Ansible 自带的 magic variable，表示当前 playbook 所在目录。
+    inventory_path: "{{ playbook_dir }}/inventory.yml"
+    sample_host: "{{ groups['incus_nodes'] | first }}"
+    # 这里和第 27 章类似，顺手从当前 Python 解释器路径旁边推导出 ansible-inventory 命令路径。
+    inventory_cmd: "{{ (ansible_playbook_python | dirname) ~ '/ansible-inventory' }}"
+
+  tasks:
+    - name: Explain controller-side troubleshooting basics
+      # 这一段先从控制端视角看问题。
+      # 真正排查 Ansible 问题时，第一步常常不是直接 SSH 上远程主机，
+      # 而是先确认：
+      # - 当前用的是哪份 inventory；
+      # - group 关系是不是你以为的那样；
+      # - 某台主机最终有哪些变量。
+      ansible.builtin.debug:
+        msg:
+          - "先从控制端确认 inventory 结构，再去看远程任务结果，通常更高效。"
+          - "这一段会演示 ansible-inventory --graph 和 --host。"
+
+    - name: Show current inventory graph from the controller
+      # `ansible-inventory --graph` 可以先理解成：
+      # 把当前 inventory 的主机组关系用树状结构打印出来。
+      ansible.builtin.command:
+        argv:
+          - "{{ inventory_cmd }}"
+          - -i
+          - "{{ inventory_path }}"
+          - --graph
+      register: inventory_graph
+      changed_when: false
+
+    - name: Show inventory graph lines
+      ansible.builtin.debug:
+        var: inventory_graph.stdout_lines
+
+    - name: Show one host variables from the controller
+      # `ansible-inventory --host node1` 可以先理解成：
+      # 打印这台主机最终生效的变量视图。
+      ansible.builtin.command:
+        argv:
+          - "{{ inventory_cmd }}"
+          - -i
+          - "{{ inventory_path }}"
+          - --host
+          - "{{ sample_host }}"
+      register: host_view
+      changed_when: false
+
+    - name: Show one host variable view as parsed JSON
+      # 前一个命令 `ansible-inventory --host node1` 输出的是一段 JSON 文本。
+      # `command` 模块只会把它放进 `host_view.stdout` 这个字符串里，
+      # 不会自动帮我们解析成字典。
+      #
+      # 所以这里故意加上 `from_json`：
+      # - 先把 JSON 字符串解析成真正的字典对象；
+      # - 再交给 `debug: var=` 显示结构化结果。
+      #
+      # 如果不这样做，你就会看到一整段带 `\n` 的字符串；
+      # 现在这样更适合学习，也更接近真正排错时想看的结构。
+      ansible.builtin.debug:
+        var: host_view.stdout | from_json
+
+- name: Troubleshoot managed hosts with debug register and assert
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    lesson_name: 28-debugging-and-troubleshooting
+    missing_probe_file: /tmp/ansible-debug-missing-file
+
+  tasks:
+    - name: Explain host-side troubleshooting basics
+      ansible.builtin.debug:
+        msg:
+          - "这一段从被管理主机视角看排错：先验证连通，再看 register 结果，再做断言。"
+          - "debug: var= 适合直接看变量结构；debug: msg= 更适合定向输出你真正关心的字段。"
+
+    - name: Verify basic connectivity with ping module
+      # `ansible.builtin.ping` 不是系统里的 ICMP ping，
+      # 而是一个最小连通性测试：
+      # - 能不能连上主机；
+      # - 远程 Python / 模块执行链路是不是通的。
+      ansible.builtin.ping:
+
+    - name: Read current identity with command
+      ansible.builtin.command: whoami
+      register: whoami_result
+      changed_when: false
+
+    - name: Probe a missing file but keep the result for troubleshooting
+      # `failed_when: false` 可以先理解成：
+      # - 即使这条命令本来会失败；
+      # - 也先不要让 play 直接中断；
+      # - 把结果保留下来给我们观察。
+      #
+      # 这种写法在排错时很常见，因为你往往先想看：
+      # - rc 是多少；
+      # - stderr 里到底说了什么；
+      # 然后再决定是不是要让它变成真正失败。
+      ansible.builtin.command: cat {{ missing_probe_file }}
+      register: missing_probe_result
+      changed_when: false
+      failed_when: false
+
+    - name: Build one troubleshooting snapshot
+      # `set_fact` 可以把零散信息先整理成一个结构，
+      # 后面就能用 `debug: var=` 或 `to_nice_yaml` 一次性看得更清楚。
+      ansible.builtin.set_fact:
+        troubleshooting_snapshot:
+          inventory_hostname: "{{ inventory_hostname }}"
+          ansible_host: "{{ ansible_host }}"
+          ansible_user: "{{ ansible_user }}"
+          ansible_port: "{{ ansible_port }}"
+          group_names: "{{ group_names }}"
+          whoami_stdout: "{{ whoami_result.stdout }}"
+          missing_probe_rc: "{{ missing_probe_result.rc }}"
+          missing_probe_stderr: "{{ missing_probe_result.stderr }}"
+
+    - name: Show snapshot with debug var
+      # `debug: var=` 会尽量保留变量原来的结构。
+      # 这在看字典、列表、嵌套结果时很方便。
+      ansible.builtin.debug:
+        var: troubleshooting_snapshot
+
+    - name: Show selected fields with debug msg
+      # `debug: msg=` 更适合把你真正关心的结论重新组织成人类可读的输出。
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "whoami_result.stdout = {{ whoami_result.stdout }}"
+          - "missing_probe_result.rc = {{ missing_probe_result.rc }}"
+          - "missing_probe_result.stderr = {{ missing_probe_result.stderr }}"
+
+    - name: Show variable types while troubleshooting
+      # `type_debug` 可以先理解成“打印这个值当前在 Jinja/Ansible 里的类型”。
+      # 它在排查“为什么这个值不能比较、不能循环、不能当布尔用”时很常见。
+      ansible.builtin.debug:
+        msg:
+          - "ansible_port_type = {{ ansible_port | type_debug }}"
+          - "group_names_type = {{ group_names | type_debug }}"
+          - "whoami_result_type = {{ whoami_result | type_debug }}"
+
+    - name: Pretty print one snapshot as YAML lines
+      # `to_nice_yaml` 会把字典渲染成一段 YAML 文本，
+      # 但它返回的本质上仍然是“字符串”。
+      #
+      # 如果直接 `debug: msg=` 打这段字符串，输出里通常会看到 `\n` 这种转义换行；
+      # 这和前面 `host_view.stdout` 直接显示成 JSON 字符串是同一类现象。
+      #
+      # 所以这里故意再加一个 `splitlines()`：
+      # - 先生成漂亮的 YAML 文本；
+      # - 再按行拆成列表；
+      # - 最后让 debug 显示成更容易读的一组行。
+      ansible.builtin.debug:
+        msg: "{{ (troubleshooting_snapshot | to_nice_yaml(indent=2)).split('\n')[:-1] }}"
+
+    - name: Assert a few basic assumptions
+      # `assert` 可以把“你认为应该成立的前提”写成明确检查。
+      # 这在排错时很有用，因为它能把含糊的假设变成清晰的失败信息。
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - ansible_user is defined
+          - (ansible_port | int) > 0
+          - whoami_result.rc == 0
+        success_msg: "当前主机的几个基础前提都成立，继续排错时可以更聚焦具体业务问题。"
+        fail_msg: "至少有一个基础前提不成立，说明应该先回头检查 inventory、连接参数或基础命令执行。"
