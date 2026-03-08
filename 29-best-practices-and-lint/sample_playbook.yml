@@ -1,0 +1,61 @@
+- name: Sample playbook for best-practice checks
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    # 这里故意把可复用路径抽成变量，而不是在任务里反复硬编码字符串。
+    sample_report_dir: /home/ubuntu/ansible-best-practice-demo
+    sample_report_file: "{{ sample_report_dir }}/report.txt"
+
+  tasks:
+    - name: Explain what this sample playbook is for
+      # 这个文件不是本章真正执行的主 playbook，
+      # 而是专门拿来演示：
+      # - syntax-check
+      # - list-tasks
+      # - list-tags
+      # - ansible-lint（如果当前环境已经安装）
+      ansible.builtin.debug:
+        msg:
+          - "这是给第 29 章做静态检查演示用的 sample_playbook.yml。"
+          - "这里故意保持结构清楚、任务命名明确、模块写法显式。"
+      tags:
+        - always
+        - intro
+
+    - name: Ensure sample report directory exists
+      # 一个常见的最佳实践是：
+      # - 能用专门模块时，就优先不用 shell；
+      # - 像目录创建、权限管理这种场景，用 `file` 比 `mkdir` 更幂等也更清楚。
+      ansible.builtin.file:
+        path: "{{ sample_report_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      tags:
+        - setup
+
+    - name: Write one sample report file
+      # 另一个常见习惯是：
+      # - 任务名写清楚动作和对象；
+      # - 模块尽量写 FQCN；
+      # - 用变量替代硬编码路径。
+      ansible.builtin.copy:
+        dest: "{{ sample_report_file }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          sample_report_file = {{ sample_report_file }}
+      tags:
+        - config
+        - report
+
+    - name: Show one summary line
+      # 这里再故意保留一条只读任务，和前面的“修改型任务”形成对比。
+      ansible.builtin.debug:
+        msg: "sample_report_file = {{ sample_report_file }}"
+      tags:
+        - report

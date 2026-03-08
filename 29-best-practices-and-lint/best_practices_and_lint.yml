@@ -1,0 +1,144 @@
+- name: Run best-practice checks on the controller
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    sample_playbook: "{{ playbook_dir }}/sample_playbook.yml"
+    inventory_path: "{{ playbook_dir }}/inventory.yml"
+    ansible_playbook_cmd: "{{ (ansible_playbook_python | dirname) ~ '/ansible-playbook' }}"
+    ansible_lint_cmd: "{{ (ansible_playbook_python | dirname) ~ '/ansible-lint' }}"
+
+  tasks:
+    - name: Explain best-practices and lint basics
+      # `lint` 可以先理解成：
+      # - 不真正执行你的业务任务；
+      # - 而是从“结构、风格、风险提示”角度做静态检查。
+      #
+      # 这一章里我们会分开看几类控制端检查：
+      # - `--syntax-check`：语法是否能过；
+      # - `--list-tasks`：任务结构是否清楚；
+      # - `--list-tags`：标签设计是否清楚；
+      # - `ansible-lint`：如果环境里已经安装，就再看 lint 工具输出。
+      ansible.builtin.debug:
+        msg:
+          - "best practice = 更容易读、改、排错、复用的写法习惯。"
+          - "lint = 不真正执行业务任务，而是先做静态检查。"
+          - "这一章重点在控制端如何检查 playbook 本身。"
+
+    - name: Show command paths used by this chapter
+      ansible.builtin.debug:
+        msg:
+          - "ansible_playbook_python = {{ ansible_playbook_python }}"
+          - "ansible_playbook_cmd = {{ ansible_playbook_cmd }}"
+          - "ansible_lint_cmd = {{ ansible_lint_cmd }}"
+          - "sample_playbook = {{ sample_playbook }}"
+
+    - name: Check whether ansible-lint exists in the current environment
+      ansible.builtin.stat:
+        path: "{{ ansible_lint_cmd }}"
+      register: ansible_lint_bin
+
+    - name: Run syntax-check for the sample playbook
+      # `--syntax-check` 可以先理解成：
+      # - 不真正执行任务；
+      # - 只确认 playbook 的 YAML / 结构 / 基本引用是否能解析通过。
+      #
+      # `chdir: {{ playbook_dir }}` 是为了让内部命令也使用这一章目录下的 `ansible.cfg`。
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_cmd }}"
+          - --syntax-check
+          - -i
+          - "{{ inventory_path }}"
+          - "{{ sample_playbook }}"
+      args:
+        chdir: "{{ playbook_dir }}"
+      register: syntax_check_result
+      changed_when: false
+
+    - name: Show syntax-check result
+      ansible.builtin.debug:
+        msg:
+          - "syntax_check_rc = {{ syntax_check_result.rc }}"
+          - "syntax_check_stdout_lines = {{ syntax_check_result.stdout_lines }}"
+          - "语法检查通过时，stdout 通常只会显示 playbook 名。"
+
+    - name: List tasks from the sample playbook
+      # `--list-tasks` 很适合在真正执行前先看：
+      # - 这个 playbook 到底会跑哪些任务；
+      # - 任务命名是否一眼能看懂。
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_cmd }}"
+          - --list-tasks
+          - -i
+          - "{{ inventory_path }}"
+          - "{{ sample_playbook }}"
+      args:
+        chdir: "{{ playbook_dir }}"
+      register: list_tasks_result
+      changed_when: false
+
+    - name: Show task list lines
+      ansible.builtin.debug:
+        var: list_tasks_result.stdout_lines
+
+    - name: List tags from the sample playbook
+      # `--list-tags` 适合在你开始大量使用 tags 后，
+      # 回头确认：
+      # - 标签命名是否清楚；
+      # - 有没有重复或混乱的标签设计。
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_cmd }}"
+          - --list-tags
+          - -i
+          - "{{ inventory_path }}"
+          - "{{ sample_playbook }}"
+      args:
+        chdir: "{{ playbook_dir }}"
+      register: list_tags_result
+      changed_when: false
+
+    - name: Show tag list lines
+      ansible.builtin.debug:
+        var: list_tags_result.stdout_lines
+
+    - name: Explain whether ansible-lint is available
+      ansible.builtin.debug:
+        msg:
+          - "ansible_lint_installed = {{ ansible_lint_bin.stat.exists }}"
+          - "如果这里是 False，说明当前环境还没有安装 ansible-lint，本章先只演示它在项目里的位置。"
+
+    - name: Run ansible-lint when available
+      # 这一条故意做成“可选演示”：
+      # - 如果当前环境没装 ansible-lint，就跳过；
+      # - 如果装了，就实际跑一遍。
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_lint_cmd }}"
+          - "{{ sample_playbook }}"
+      args:
+        chdir: "{{ playbook_dir }}"
+      register: ansible_lint_result
+      changed_when: false
+      when: ansible_lint_bin.stat.exists
+
+    - name: Show ansible-lint result when available
+      ansible.builtin.debug:
+        msg:
+          - "ansible_lint_result.rc = {{ ansible_lint_result.rc }}"
+          - "ansible_lint_result.stdout_lines = {{ ansible_lint_result.stdout_lines }}"
+      when: ansible_lint_bin.stat.exists
+
+    - name: Summarize best-practice highlights from the sample playbook
+      # 这里不再去执行 sample_playbook，
+      # 而是把这一章真正想强调的几条写法总结出来。
+      ansible.builtin.debug:
+        msg:
+          - "best_practice_1 = 任务名写清楚动作和对象。"
+          - "best_practice_2 = 尽量显式写 FQCN，例如 ansible.builtin.copy。"
+          - "best_practice_3 = 能用模块就优先不用 shell。"
+          - "best_practice_4 = 把重复路径和关键值提成变量。"
+          - "best_practice_5 = 在真正执行前，先做 syntax-check、list-tasks、list-tags。"
