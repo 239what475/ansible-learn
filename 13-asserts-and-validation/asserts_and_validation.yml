@@ -1,0 +1,129 @@
+- name: Learn asserts and validation on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    remote_demo_dir: /home/ubuntu/ansible-assert-demo
+    remote_probe_file: /home/ubuntu/ansible-assert-demo/probe.txt
+    controller_output_dir: "{{ playbook_dir }}/controller-output"
+    controller_summary_file: "{{ playbook_dir }}/controller-output/validation-summary.txt"
+    expected_min_hosts: 2
+
+  tasks:
+    - name: Explain assert fail and stat
+      # `assert` 用来验证“条件是否成立”；条件不成立时，这条任务就会失败。
+      # `fail` 用来手工制造一个明确失败，并给出自定义错误信息。
+      # `stat` 用来读取文件/目录的元数据，比如是否存在、是不是普通文件、权限等。
+      ansible.builtin.debug:
+        msg:
+          - "assert = 验证条件，不满足就失败。"
+          - "fail = 手工停止流程，并给出明确提示。"
+          - "stat = 读取文件状态，不负责修改文件。"
+      run_once: true
+
+    - name: Assert inventory group has enough hosts
+      # `assert.that` 是一个条件列表，列表里的每个条件都必须成立。
+      # 这里先验证当前实验组里至少有 2 台主机。
+      # `groups['incus_nodes'] | length` 里的 `|` 不是“或”，而是 Jinja 过滤器语法。
+      # 它表示“把左边的值交给右边处理”：这里就是把主机列表交给 `length`，得到列表长度。
+      # 你也可以先把它近似理解成函数调用：`groups['incus_nodes'] | length` 类似 `length(groups['incus_nodes'])`。
+      # 同理，`xxx | default(1)` 也可以近似理解成 `default(xxx, 1)`。
+      # 你之前见过的 `xxx | default(1)` 也是同一种写法，只是换了另一个过滤器。
+      ansible.builtin.assert:
+        that:
+          - groups['incus_nodes'] | length >= expected_min_hosts
+        fail_msg: "incus_nodes 主机数量不足，至少需要 {{ expected_min_hosts }} 台。"
+        success_msg: "incus_nodes 主机数量满足要求。"
+      run_once: true
+
+    - name: Assert current host has ansible_host
+      # 这条断言在每台主机上各自执行，用来确认 inventory 里已经给出连接地址。
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - ansible_host | length > 0
+        fail_msg: "{{ inventory_hostname }} 缺少 ansible_host。"
+        success_msg: "{{ inventory_hostname }} 已定义 ansible_host。"
+
+    - name: Ensure remote demo directory exists
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Write one probe file on every host
+      ansible.builtin.copy:
+        dest: "{{ remote_probe_file }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+        content: |
+          inventory_hostname = {{ inventory_hostname }}
+          ansible_host = {{ ansible_host }}
+
+    - name: Read probe file metadata with stat
+      # `stat` 不会读取文件内容，而是返回一个结构化结果，里面有 `exists`、`isreg` 等字段。
+      # 这里用 `register` 把结果记到当前主机自己的 `probe_file_stat` 变量里。
+      ansible.builtin.stat:
+        path: "{{ remote_probe_file }}"
+      register: probe_file_stat
+
+    - name: Assert probe file exists and is regular file
+      # 上一步的 `probe_file_stat.stat.exists` 表示文件是否存在。
+      # `probe_file_stat.stat.isreg` 的完整意思是 `is regular file`，表示它是不是“普通文件”。
+      # 这里的普通文件，可以先理解成“是文件，不是文件夹”；如果去检查目录，通常就会是 `isdir = true`、`isreg = false`。
+      ansible.builtin.assert:
+        that:
+          - probe_file_stat.stat.exists
+          - probe_file_stat.stat.isreg
+        fail_msg: "{{ inventory_hostname }} 上的 probe 文件缺失或不是普通文件。"
+        success_msg: "{{ inventory_hostname }} 上的 probe 文件状态正常。"
+
+    - name: Demonstrate manual fail only when host count is too small
+      # `fail` 比 `assert` 更直接：条件一旦满足，就立刻按你给的消息报错。
+      # 当前实验环境里这条通常会被跳过，因为主机数量已经够了。
+      ansible.builtin.fail:
+        msg: "当前主机数量不足，不继续后面的多主机验证。"
+      when: groups['incus_nodes'] | length < expected_min_hosts
+      run_once: true
+
+    - name: Ensure controller output directory exists locally
+      ansible.builtin.file:
+        path: "{{ controller_output_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Write validation summary from hostvars
+      # 这里再次用到了 `hostvars`：虽然任务只在控制端执行一次，但能读取所有主机的变量。
+      # 上面 `stat` 注册得到的 `probe_file_stat` 也是按主机保存的，所以这里可以跨主机读取：
+      # `hostvars[host_name].probe_file_stat.stat.exists`
+      ansible.builtin.copy:
+        dest: "{{ controller_summary_file }}"
+        mode: '0644'
+        content: |
+          expected_min_hosts = {{ expected_min_hosts }}
+          actual_host_count = {{ groups['incus_nodes'] | length }}
+          {% for host_name in groups['incus_nodes'] %}
+          {{ host_name }}.ansible_host = {{ hostvars[host_name].ansible_host }}
+          {{ host_name }}.probe_exists = {{ hostvars[host_name].probe_file_stat.stat.exists | default(false) }}
+          {{ host_name }}.probe_isreg = {{ hostvars[host_name].probe_file_stat.stat.isreg | default(false) }}
+          {% endfor %}
+      delegate_to: localhost
+      run_once: true
+
+    - name: Read validation summary locally
+      ansible.builtin.command: cat {{ controller_summary_file }}
+      register: validation_summary
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
+
+    - name: Show validation summary lines
+      ansible.builtin.debug:
+        var: validation_summary.stdout_lines
+      run_once: true

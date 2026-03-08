@@ -25,6 +25,7 @@
 14. `10-delegation-and-run-once/README.md`
 15. `11-serial-and-batches/README.md`
 16. `12-hostvars-and-groups/README.md`
+17. `13-asserts-and-validation/README.md`
 
 ## 目录说明
 
@@ -41,6 +42,7 @@
 - `10-delegation-and-run-once/`：第十章，学习 delegate_to 和 run_once
 - `11-serial-and-batches/`：第十一章，学习 serial、批次和 run_once 的批次行为
 - `12-hostvars-and-groups/`：第十二章，学习 groups、hostvars 和 set_fact
+- `13-asserts-and-validation/`：第十三章，学习 assert、fail、stat 和多主机验证
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -58,6 +60,7 @@
 - 然后进入 `10-delegation-and-run-once/`
 - 然后进入 `11-serial-and-batches/`
 - 然后进入 `12-hostvars-and-groups/`
+- 然后进入 `13-asserts-and-validation/`
 
 ## 文件约定
 
