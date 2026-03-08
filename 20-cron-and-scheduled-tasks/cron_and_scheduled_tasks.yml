@@ -1,0 +1,110 @@
+- name: Learn cron and scheduled tasks on Incus nodes
+  # 这一章要安装 cron 软件包，还会写用户 crontab 和 `/etc/cron.d/` 文件，
+  # 所以直接在 play 层开启 `become: true`。
+  hosts: incus_nodes
+  gather_facts: false
+  become: true
+
+  vars:
+    lesson_name: 20-cron-and-scheduled-tasks
+    demo_user_name: ansible_demo
+    demo_primary_group: ansible_demo
+    user_cron_job_name: ansible daily note
+    cron_file_name: ansible_demo_report
+    cron_file_job_name: ansible every-15-minutes report
+
+  tasks:
+    - name: Explain cron module basics
+      ansible.builtin.debug:
+        msg:
+          - "`cron` 模块管理的是 Linux 定时任务。"
+          - "可以先把 `cron` 理解成负责按时间执行任务的服务，把 `crontab` 理解成它读取的任务时间表。"
+          - "用户自己的定时任务通常看 `crontab -l -u 用户名`。"
+          - "系统级的定时任务也常见于 `/etc/cron.d/`。"
+          - "`name` 非常重要；Ansible 会用它写入 `#Ansible: <name>` 标记，后面靠它定位并更新同一条任务。"
+      run_once: true
+
+    - name: Ensure cron package is installed
+      # `cron` 模块依赖系统上有 cron 实现；在 Ubuntu 里常见的软件包名就是 `cron`。
+      ansible.builtin.apt:
+        name: cron
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure cron service is started and enabled
+      # 这一章主要讲 `cron` 模块，不把重点放在 systemd 上；
+      # 所以这里用更通用的 `service` 模块，意思是“确保 cron 服务正在运行，且开机自启”。
+      ansible.builtin.service:
+        name: cron
+        state: started
+        enabled: true
+
+    - name: Ensure demo primary Linux group exists
+      # 为了让这一章可以单独跑，这里顺手确保示例主组存在。
+      ansible.builtin.group:
+        name: "{{ demo_primary_group }}"
+        state: present
+
+    - name: Ensure demo user exists for user crontab demo
+      # 为了让这一章可以单独跑，这里顺手确保示例用户存在。
+      ansible.builtin.user:
+        name: "{{ demo_user_name }}"
+        group: "{{ demo_primary_group }}"
+        shell: /bin/bash
+        create_home: true
+        state: present
+
+    - name: Ensure APP_HOME environment line exists in demo user's crontab
+      # `env: true` 表示这不是一条定时命令，而是一条环境变量定义。
+      # `name` 是变量名，`job` 在这种场景里更像变量值。
+      # 环境变量行不会带 `#Ansible: ...` 注释；模块会直接按变量名去找对应行。
+      ansible.builtin.cron:
+        name: APP_HOME
+        env: true
+        user: "{{ demo_user_name }}"
+        job: "/home/{{ demo_user_name }}"
+
+    - name: Ensure one named user cron job exists
+      # 这里管理的是“某个用户自己的 crontab”。
+      # `special_time: daily` 可以先理解成 `@daily` 这种快捷写法；
+      # 它和 `minute` / `hour` / `day` 这些字段是两套风格，不能混着用。
+      #
+      # `name` 不只是描述文字；Ansible 会额外写一行：
+      # `#Ansible: {{ user_cron_job_name }}`
+      # 以后再次运行时，模块就靠这行标记去识别并更新同一条任务。
+      ansible.builtin.cron:
+        name: "{{ user_cron_job_name }}"
+        user: "{{ demo_user_name }}"
+        special_time: daily
+        job: "echo user-cron-ran >> /tmp/ansible-user-cron.log"
+
+    - name: Ensure one cron.d job exists
+      # `cron_file` 表示这条任务不写进某个用户自己的 crontab，
+      # 而是写进 `/etc/cron.d/{{ cron_file_name }}` 这样的系统级文件。
+      # 这类写法通常更适合系统服务或统一管理的任务。
+      # 使用 `cron_file` 时，通常也要写清楚 `user`，表示这条命令最终以哪个用户身份执行。
+      ansible.builtin.cron:
+        name: "{{ cron_file_job_name }}"
+        cron_file: "{{ cron_file_name }}"
+        user: "{{ demo_user_name }}"
+        minute: "*/15"
+        job: "echo cron-file-ran >> /tmp/ansible-cron-file.log"
+
+    - name: Read demo user's crontab
+      # `crontab -l -u 用户名` 是查看某个用户当前 crontab 内容的常见命令。
+      ansible.builtin.command: crontab -l -u {{ demo_user_name }}
+      register: user_crontab_content
+      changed_when: false
+
+    - name: Read one cron.d file
+      ansible.builtin.command: cat /etc/cron.d/{{ cron_file_name }}
+      register: cron_file_content
+      changed_when: false
+
+    - name: Show final cron results
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "user_crontab_content.stdout_lines = {{ user_crontab_content.stdout_lines }}"
+          - "cron_file_content.stdout_lines = {{ cron_file_content.stdout_lines }}"
