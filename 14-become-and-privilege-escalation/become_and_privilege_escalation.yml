@@ -1,0 +1,96 @@
+- name: Learn become and privilege escalation on Incus nodes
+  # 这一整个 play 会对 `incus_nodes` 组里的主机执行。
+  hosts: incus_nodes
+  # `become` 这种关键字常见可以写在 play、block、task 这三层。
+  # 写在 play 层时，会给这一整个 play 下面的任务提供默认提权行为。
+  # 这一章故意不在 play 层全局开启，目的是让你更清楚地看到后面 task 层和 block 层的区别。
+  gather_facts: false
+
+  vars:
+    privileged_demo_dir: /root/ansible-become-demo
+    privileged_demo_file: /root/ansible-become-demo/identity.txt
+    privileged_config_file: /etc/ansible-learn-become.conf
+
+  tasks:
+    - name: Explain become and become_user
+      # `become: true` 的意思是：当前任务需要先提权，再执行真正的动作。
+      # 在这套实验环境里，提权方式是 `sudo`。
+      # `become_user` 表示提权后要切换成哪个用户；如果没有特别指定，常见情况就是 root。
+      # 所以你可以先把 `become` 理解成“这条任务要不要先 sudo 一下”。
+      ansible.builtin.debug:
+        msg:
+          - "become = 当前任务需要提权后再执行。"
+          - "become_user = 提权后最终要以哪个用户身份执行。"
+      run_once: true
+
+    - name: Show current identity without become
+      # 这里没有写 `become`，所以命令会直接以 SSH 登录用户身份执行。
+      ansible.builtin.command: whoami
+      register: normal_identity
+      changed_when: false
+
+    - name: Show identity with task-level become
+      # 这里显式写了 `become: true`，所以这一条任务会先提权。
+      # `become_user: root` 让这条命令最终以 root 身份执行。
+      # 这是 task 层的写法：只影响这一条任务本身。
+      ansible.builtin.command: whoami
+      register: elevated_identity
+      changed_when: false
+      become: true
+      become_user: root
+
+    - name: Compare normal and elevated identity
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "normal_identity.stdout = {{ normal_identity.stdout }}"
+          - "elevated_identity.stdout = {{ elevated_identity.stdout }}"
+
+    - name: Create privileged files with block-level become
+      # 这里演示另一个很常见的写法：不给每条任务单独写 `become`，
+      # 而是在 block 这一层统一声明，让整个任务块都以提权后的身份执行。
+      # 所以 `become` 不是“哪里都能写”，而是常见写在 play、block、task 这几个有作用域的位置。
+      # 其中 play 范围最大，block 次之，task 最小；越具体的层级，通常越像是在覆盖上层默认值。
+      block:
+        - name: Ensure privileged demo directory exists
+          ansible.builtin.file:
+            path: "{{ privileged_demo_dir }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0700'
+
+        - name: Write privileged identity file
+          ansible.builtin.copy:
+            dest: "{{ privileged_demo_file }}"
+            owner: root
+            group: root
+            mode: '0600'
+            content: |
+              inventory_hostname = {{ inventory_hostname }}
+              elevated_identity.stdout = {{ elevated_identity.stdout }}
+
+        - name: Write privileged config file under /etc
+          ansible.builtin.copy:
+            dest: "{{ privileged_config_file }}"
+            owner: root
+            group: root
+            mode: '0644'
+            content: |
+              managed_by = ansible
+              inventory_hostname = {{ inventory_hostname }}
+              mode = block-level-become
+      become: true
+      become_user: root
+
+    - name: Read privileged identity file with become
+      # `/root/...` 这类路径通常需要 root 权限；所以读取它时也需要提权。
+      ansible.builtin.command: cat {{ privileged_demo_file }}
+      register: privileged_file_content
+      changed_when: false
+      become: true
+      become_user: root
+
+    - name: Show privileged file content
+      ansible.builtin.debug:
+        var: privileged_file_content.stdout_lines
