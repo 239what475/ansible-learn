@@ -38,6 +38,7 @@
 27. `23-project-layout-and-environments/README.md`
 28. `24-handlers-meta-and-flush/README.md`
 29. `25-async-and-poll/README.md`
+30. `26-strategy-and-failure-control/README.md`
 
 ## 目录说明
 
@@ -67,6 +68,7 @@
 - `23-project-layout-and-environments/`：第二十三章，学习更真实的项目目录结构和 dev/prod 环境拆分
 - `24-handlers-meta-and-flush/`：第二十四章，学习 handler、notify 和 `meta: flush_handlers`
 - `25-async-and-poll/`：第二十五章，学习 async、poll、async_status 和后台任务轮询
+- `26-strategy-and-failure-control/`：第二十六章，学习 strategy、any_errors_fatal 和 max_fail_percentage
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -97,6 +99,7 @@
 - 然后进入 `23-project-layout-and-environments/`
 - 然后进入 `24-handlers-meta-and-flush/`
 - 然后进入 `25-async-and-poll/`
+- 然后进入 `26-strategy-and-failure-control/`
 
 ## 文件约定
 

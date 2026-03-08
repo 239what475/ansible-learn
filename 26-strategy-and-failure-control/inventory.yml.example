@@ -1,0 +1,15 @@
+# 这一章通常直接复用 25-async-and-poll 的 inventory。
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_user: your-user
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    incus_nodes:
+      hosts:
+        node1:
+          ansible_host: 192.0.2.11
+        node2:
+          ansible_host: 192.0.2.12

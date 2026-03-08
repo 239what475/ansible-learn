@@ -1,0 +1,223 @@
+- name: Observe linear strategy
+  hosts: incus_nodes
+  gather_facts: false
+  # `strategy` 可以先理解成：多主机任务推进时的“调度策略”。
+  # `linear` 是默认策略，可以先理解成“按任务同步推进”：
+  # - 当前任务没有在当前批次所有主机上完成前；
+  # - Ansible 不会开始下一条任务。
+  strategy: linear
+
+  vars:
+    lesson_name: 26-strategy-and-failure-control
+    slow_host: "{{ groups['incus_nodes'] | first }}"
+    fast_host: "{{ groups['incus_nodes'] | last }}"
+    sleep_seconds: "{{ 3 if inventory_hostname == slow_host else 1 }}"
+
+  tasks:
+    - name: Explain linear strategy
+      ansible.builtin.debug:
+        msg:
+          - "strategy = linear 表示当前任务要先在这一批主机上都完成，下一条任务才开始。"
+          - "这一节里故意让 {{ slow_host }} 睡 3 秒，让 {{ fast_host }} 睡 1 秒。"
+          - "观察点：在线性策略下，{{ fast_host }} 也要等 {{ slow_host }} 完成当前任务后，才能进入下一条任务。"
+
+    - name: Simulate a slow first step under linear strategy
+      # 这一条任务只是制造“一个快、一个慢”的差异。
+      # 后面我们不直接用远程主机自己的时间做比较，
+      # 而是用控制端记录“主机推进到某一步时”的时间点。
+      ansible.builtin.shell: |
+        sleep {{ sleep_seconds }}
+      changed_when: false
+
+    - name: Mark when each host enters step1 marker under linear strategy
+      # `lookup('pipe', 'date +%s')` 是在控制端执行的，
+      # 所以两台主机拿到的是同一块时钟上的时间戳，更适合跨主机比较。
+      ansible.builtin.set_fact:
+        linear_after_step1_mark: "{{ lookup('pipe', 'date +%s') }}"
+
+    - name: Mark when each host enters step2 under linear strategy
+      # 在线性策略下，这条任务要等“上一个任务在所有主机都完成”后才能开始。
+      ansible.builtin.set_fact:
+        linear_step2_mark: "{{ lookup('pipe', 'date +%s') }}"
+
+- name: Summarize linear strategy on controller
+  hosts: localhost
+  gather_facts: false
+  # `connection: local` 表示：这一整个 play 不走 SSH，直接在控制端本机执行。
+  # 这里的目标不是再去远程主机上跑任务，而是回到控制端做一次汇总。
+  #
+  # 它和 `delegate_to: localhost` 的区别可以先这样理解：
+  # - `connection: local`：这一整个 play 都在本机执行；
+  # - `delegate_to: localhost`：当前 play 仍然是远程主机上下文，只是某一条任务临时委托到本机。
+  connection: local
+
+  vars:
+    slow_host: "{{ groups['incus_nodes'] | first }}"
+    fast_host: "{{ groups['incus_nodes'] | last }}"
+
+  tasks:
+    - name: Show linear strategy summary
+      # 这里读取上一段 play 留在 `hostvars` 里的标记时间。
+      #
+      # `linear_fast_step2_after_slow_step1 = True` 可以先理解成：
+      # - 较快主机进入第二步时；
+      # - 已经晚于或等于较慢主机完成第一步之后的标记时间；
+      # 这正是 `linear` 的“按任务同步推进”。
+      ansible.builtin.debug:
+        msg:
+          - "slow_host = {{ slow_host }}"
+          - "fast_host = {{ fast_host }}"
+          - "{{ slow_host }}.linear_after_step1_mark = {{ hostvars[slow_host].linear_after_step1_mark | int }}"
+          - "{{ fast_host }}.linear_after_step1_mark = {{ hostvars[fast_host].linear_after_step1_mark | int }}"
+          - "{{ slow_host }}.linear_step2_mark = {{ hostvars[slow_host].linear_step2_mark | int }}"
+          - "{{ fast_host }}.linear_step2_mark = {{ hostvars[fast_host].linear_step2_mark | int }}"
+          - "linear_fast_step2_after_slow_step1 = {{ (hostvars[fast_host].linear_step2_mark | int) >= (hostvars[slow_host].linear_after_step1_mark | int) }}"
+
+- name: Observe free strategy
+  hosts: incus_nodes
+  gather_facts: false
+  # `free` 可以先理解成“每台主机自己往前跑”。
+  # 也就是说：
+  # - 某台主机做完当前任务后；
+  # - 不必等别的主机；
+  # - 可以先进入下一条任务。
+  strategy: free
+
+  vars:
+    slow_host: "{{ groups['incus_nodes'] | first }}"
+    fast_host: "{{ groups['incus_nodes'] | last }}"
+    sleep_seconds: "{{ 3 if inventory_hostname == slow_host else 1 }}"
+
+  tasks:
+    - name: Explain free strategy
+      ansible.builtin.debug:
+        msg:
+          - "strategy = free 表示各主机可以独立往下推进。"
+          - "观察点：这次 {{ fast_host }} 做完第一步后，不必等 {{ slow_host }}，就能先进入第二步。"
+
+    - name: Simulate a slow first step under free strategy
+      ansible.builtin.shell: |
+        sleep {{ sleep_seconds }}
+      changed_when: false
+
+    - name: Mark when each host enters step1 marker under free strategy
+      ansible.builtin.set_fact:
+        free_after_step1_mark: "{{ lookup('pipe', 'date +%s') }}"
+
+    - name: Mark when each host enters step2 under free strategy
+      ansible.builtin.set_fact:
+        free_step2_mark: "{{ lookup('pipe', 'date +%s') }}"
+
+- name: Summarize free strategy on controller
+  hosts: localhost
+  gather_facts: false
+  # 这里同样使用 `connection: local`，表示这一段总结任务直接在控制端执行。
+  # 这样就可以在本机一次性读取 `hostvars[node1]`、`hostvars[node2]` 来做比较。
+  connection: local
+
+  vars:
+    slow_host: "{{ groups['incus_nodes'] | first }}"
+    fast_host: "{{ groups['incus_nodes'] | last }}"
+
+  tasks:
+    - name: Show free strategy summary
+      # `free_fast_step2_before_slow_step1 = True` 可以先理解成：
+      # - 较快主机已经进入第二步；
+      # - 但较慢主机这时还没到“完成第一步后的标记点”；
+      # 这就是 `free` 策略最直观的现象。
+      ansible.builtin.debug:
+        msg:
+          - "slow_host = {{ slow_host }}"
+          - "fast_host = {{ fast_host }}"
+          - "{{ slow_host }}.free_after_step1_mark = {{ hostvars[slow_host].free_after_step1_mark | int }}"
+          - "{{ fast_host }}.free_after_step1_mark = {{ hostvars[fast_host].free_after_step1_mark | int }}"
+          - "{{ slow_host }}.free_step2_mark = {{ hostvars[slow_host].free_step2_mark | int }}"
+          - "{{ fast_host }}.free_step2_mark = {{ hostvars[fast_host].free_step2_mark | int }}"
+          - "free_fast_step2_before_slow_step1 = {{ (hostvars[fast_host].free_step2_mark | int) < (hostvars[slow_host].free_after_step1_mark | int) }}"
+
+- name: Optional demo for any_errors_fatal
+  hosts: incus_nodes
+  gather_facts: false
+  # `never` 是 Ansible 自带的特殊 tag，不是我们自己随便起的普通标签。
+  # 可以先理解成：
+  # - 默认不执行；
+  # - 只有你显式指定相关 tag 时才跑这一段。
+  #
+  # 所以这里写成：
+  # - `never`
+  # - `any_errors_fatal_demo`
+  #
+  # 意思就是：
+  # - 这整个 play 默认跳过；
+  # - 只有你显式带 `--tags any_errors_fatal_demo`（或 `--tags never`）时才执行。
+  tags:
+    - never
+    - any_errors_fatal_demo
+  # `any_errors_fatal: true` 可以先理解成：
+  # - 只要当前 play 里有一台主机出现致命失败；
+  # - 其它主机也不要继续往下跑了。
+  any_errors_fatal: true
+
+  vars:
+    failure_host: "{{ groups['incus_nodes'] | last }}"
+
+  tasks:
+    - name: Explain any_errors_fatal demo
+      ansible.builtin.debug:
+        msg:
+          - "这一段默认不会执行，除非显式带 --tags any_errors_fatal_demo。"
+          - "这里故意让 {{ failure_host }} 失败，用来观察 any_errors_fatal 的效果。"
+
+    - name: Fail one host under any_errors_fatal
+      # 这里故意让一台主机失败。
+      # 关键观察点不是“这台主机失败了”本身，
+      # 而是：由于 `any_errors_fatal: true`，当前 play 通常会整体停止推进。
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname != failure_host
+        fail_msg: "故意让 {{ inventory_hostname }} 失败，用来观察 any_errors_fatal。"
+        success_msg: "{{ inventory_hostname }} 这台主机在 any_errors_fatal 示例里没有故意失败。"
+
+    - name: This task usually will not run after any_errors_fatal triggers
+      ansible.builtin.debug:
+        msg: "如果你看到了这条，说明上面的致命失败没有按预期阻止整个 play。"
+
+- name: Optional demo for max_fail_percentage
+  hosts: incus_nodes
+  gather_facts: false
+  tags:
+    - never
+    - max_fail_percentage_demo
+  # 这里同样利用 `never` 让这个故意失败的示例默认不执行。
+  # `max_fail_percentage` 可以先理解成：
+  # - 允许失败的主机比例上限是多少；
+  # - 一旦超过这个比例，就停止当前 play。
+  #
+  # 这里当前批次有 2 台主机，故意让其中 1 台失败：
+  # - 失败比例 = 50%
+  # - `max_fail_percentage: 40` 被超过了
+  # 所以后面的任务通常不会继续执行。
+  max_fail_percentage: 40
+  serial: 2
+
+  vars:
+    failure_host: "{{ groups['incus_nodes'] | last }}"
+
+  tasks:
+    - name: Explain max_fail_percentage demo
+      ansible.builtin.debug:
+        msg:
+          - "这一段默认不会执行，除非显式带 --tags max_fail_percentage_demo。"
+          - "这里故意让 {{ failure_host }} 失败；当前批次 2 台主机里失败 1 台，就是 50%。"
+          - "因为 50% > 40%，所以 play 通常会停止。"
+
+    - name: Fail one host to exceed max_fail_percentage
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname != failure_host
+        fail_msg: "故意让 {{ inventory_hostname }} 失败，用来观察 max_fail_percentage。"
+        success_msg: "{{ inventory_hostname }} 这台主机在 max_fail_percentage 示例里没有故意失败。"
+
+    - name: This task usually will not run after max_fail_percentage triggers
+      ansible.builtin.debug:
+        msg: "如果你看到了这条，说明失败比例没有按预期阻止 play 继续执行。"
