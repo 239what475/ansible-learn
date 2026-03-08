@@ -1,0 +1,174 @@
+- name: Learn async and poll on Incus nodes
+  hosts: incus_nodes
+  gather_facts: false
+
+  vars:
+    lesson_name: 25-async-and-poll
+    remote_demo_dir: /home/ubuntu/ansible-async-demo
+    polled_result_file: "{{ remote_demo_dir }}/polled-result.txt"
+    background_result_file: "{{ remote_demo_dir }}/background-result.txt"
+
+  tasks:
+    - name: Explain async and poll basics
+      # `async` 可以先理解成“这条任务最多允许在远程跑多久”。
+      # 单位是秒，例如 `async: 20` 表示远程任务最多可以跑 20 秒。
+      #
+      # 但要注意：
+      # - `async` 本身不等于“Ansible 立刻不等了”；
+      # - 真正决定“Ansible 要不要继续等”的，是 `poll`。
+      #
+      # 常见两种组合：
+      # - `async: 20` + `poll: 1`：任务异步运行，但 Ansible 仍会每隔 1 秒查一次，直到它结束；
+      # - `async: 20` + `poll: 0`：任务放到后台，Ansible 立刻返回，不等它完成。
+      ansible.builtin.debug:
+        msg:
+          - "async = 远程任务允许的最长运行时间。"
+          - "poll > 0 = Ansible 继续等待，并按间隔轮询状态。"
+          - "poll = 0 = 后台执行，先拿到 ansible_job_id，稍后再查。"
+
+    - name: Ensure demo directory exists
+      ansible.builtin.file:
+        path: "{{ remote_demo_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Remove old demo files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ polled_result_file }}"
+        - "{{ background_result_file }}"
+
+    - name: Run one async task with poll > 0
+      # 这里故意用一个会睡 2 秒的命令模拟“长一点的任务”。
+      #
+      # `poll: 1` 表示：
+      # - 任务已经交给异步机制管理；
+      # - 但 Ansible 不会立刻返回，而是每隔 1 秒去查一次结果；
+      # - 所以从用户感受上看，它仍然会“等任务跑完”。
+      #
+      # 这类写法适合：
+      # - 任务可能比默认 SSH 超时更长；
+      # - 但你仍然希望 playbook 在这里等它结束再继续。
+      ansible.builtin.shell: |
+        sleep 2
+        printf 'polled async done on %s\n' "{{ inventory_hostname }}" > "{{ polled_result_file }}"
+      async: 20
+      poll: 1
+      register: polled_async_result
+
+    - name: Show result of async task with poll > 0
+      # 因为前一个任务已经等到了结束，所以这里拿到的就是最终结果。
+      # `finished = true` 表示后台任务已经结束。
+      ansible.builtin.debug:
+        msg:
+          - "polled_async_result.finished = {{ polled_async_result.finished | default(false) }}"
+          - "polled_async_result.changed = {{ polled_async_result.changed }}"
+          - "poll > 0 时，Ansible 会等到任务完成后再继续往下走。"
+
+    - name: Launch one async task with poll 0
+      # 这里把任务放到后台后立刻返回。
+      #
+      # 这时 register 里最关键的信息不是 stdout，
+      # 而是 `ansible_job_id`：它相当于这次后台任务的“异步任务编号”。
+      # 后面 `async_status` 就要靠这个编号去查询结果。
+      ansible.builtin.shell: |
+        sleep 2
+        printf 'background async done on %s\n' "{{ inventory_hostname }}" > "{{ background_result_file }}"
+      async: 20
+      poll: 0
+      register: background_async_job
+
+    - name: Show async job id returned by poll 0
+      # `poll: 0` 时，Ansible 现在并不知道任务是否已经完成；
+      # 它只是告诉你：
+      # - 后台任务已经启动；
+      # - 任务编号是哪个。
+      ansible.builtin.debug:
+        msg:
+          - "background_async_job.ansible_job_id = {{ background_async_job.ansible_job_id }}"
+          - "background_async_job.started = {{ background_async_job.started | default(false) }}"
+          - "poll = 0 时会先返回，再用 async_status 查询。"
+
+    - name: Poll background async job until it finishes
+      # `async_status` 专门用来查询某个后台异步任务的状态。
+      #
+      # `jid` 就是前面拿到的 `ansible_job_id`。
+      # `until + retries + delay` 可以先理解成：
+      # - 查一次；
+      # - 如果条件还不满足，就等 `delay` 秒；
+      # - 最多重试 `retries` 次。
+      #
+      # 这里的条件写成 `background_async_status is finished`，
+      # 意思是“直到这个异步任务已经结束”。
+      #
+      # 这里的 `is finished` 不是“所有 register 结果都能通用判断”的固定语法，
+      # 而是 Ansible 专门提供给异步任务结果使用的 test。
+      # 对 `async_status` 这种结果来说，它大致可以理解成：
+      # - 先看结果里有没有 `finished` 这个字段；
+      # - 如果有，再判断它是不是 `True`。
+      #
+      # 所以在这一章里，它和下面这种理解很接近：
+      # `background_async_status.finished == true`
+      #
+      # 但更推荐写成 `is finished`，因为它更像在表达：
+      # “把这个结果当成异步任务状态来判断是否完成”。
+      #
+      # 对普通任务的 register 结果，通常不应该这样判断；
+      # 普通任务更常见的是看 `rc`、`stdout`、`stderr`、`changed` 这些字段。
+      ansible.builtin.async_status:
+        jid: "{{ background_async_job.ansible_job_id }}"
+      register: background_async_status
+      until: background_async_status is finished
+      retries: 10
+      delay: 1
+
+    - name: Show final async status result
+      # `attempts` 表示这一轮 `until` 总共尝试了几次。
+      # 如果任务很快完成，次数就会比较小。
+      ansible.builtin.debug:
+        msg:
+          - "background_async_status.finished = {{ background_async_status.finished | default(false) }}"
+          - "background_async_status.changed = {{ background_async_status.changed | default(false) }}"
+          - "background_async_status.attempts = {{ background_async_status.attempts | default('n/a') }}"
+
+    - name: Read background result file after async_status
+      ansible.builtin.command: cat {{ background_result_file }}
+      register: background_file_content
+      changed_when: false
+
+    - name: Show background result file lines
+      ansible.builtin.debug:
+        msg:
+          - "inventory_hostname = {{ inventory_hostname }}"
+          - "background_file_content.stdout_lines = {{ background_file_content.stdout_lines }}"
+
+    - name: Clean up async status cache file
+      # `mode: cleanup` 不是清理真正的业务结果文件，
+      # 而是清理 Ansible 在远程主机上保存的“异步任务状态缓存文件”。
+      # 默认常见位置可以先理解成远程主机上的 `~/.ansible_async/`。
+      #
+      # 也就是说：
+      # - `{{ background_result_file }}` 这种你自己生成的文件还在；
+      # - 被删掉的是 Ansible 用来追踪这个 async job 的内部状态文件。
+      #
+      # 这里还要注意一个常见误区：
+      # - 不是“每个 async 任务都必须手工 cleanup”；
+      # - 更准确地说：当你已经不再需要继续查询这个 `jid` 的状态时，cleanup 是一个很好的收尾动作。
+      #
+      # 对小型实验来说，即使不 cleanup，任务通常也能正常结束；
+      # 只是远程主机上会留下这次异步任务的状态缓存文件。
+      # 如果后台任务很多，或者你希望环境更整洁，就更适合在用完后做 cleanup。
+      #
+      # 另外不要过早 cleanup：
+      # - 如果后台任务还没结束，你就把状态文件删掉；
+      # - 后面通常就没法再用同一个 `jid` 继续 `async_status` 查询了。
+      # 但这不等于真正的业务进程一定被停止；
+      # cleanup 主要删的是“状态记录”，不是你的业务结果文件。
+      ansible.builtin.async_status:
+        jid: "{{ background_async_job.ansible_job_id }}"
+        mode: cleanup
+      changed_when: false

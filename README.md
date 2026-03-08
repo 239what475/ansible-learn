@@ -37,6 +37,7 @@
 26. `22-secrets-and-vault/README.md`
 27. `23-project-layout-and-environments/README.md`
 28. `24-handlers-meta-and-flush/README.md`
+29. `25-async-and-poll/README.md`
 
 ## 目录说明
 
@@ -65,6 +66,7 @@
 - `22-secrets-and-vault/`：第二十二章，学习 ansible-vault、敏感变量和 no_log
 - `23-project-layout-and-environments/`：第二十三章，学习更真实的项目目录结构和 dev/prod 环境拆分
 - `24-handlers-meta-and-flush/`：第二十四章，学习 handler、notify 和 `meta: flush_handlers`
+- `25-async-and-poll/`：第二十五章，学习 async、poll、async_status 和后台任务轮询
 - `scripts/`：仓库级公共脚本，不绑定某一章
 
 ## 学习路径
@@ -94,6 +96,7 @@
 - 然后进入 `22-secrets-and-vault/`
 - 然后进入 `23-project-layout-and-environments/`
 - 然后进入 `24-handlers-meta-and-flush/`
+- 然后进入 `25-async-and-poll/`
 
 ## 文件约定
 
