@@ -9,15 +9,18 @@
 
 建议后续按下面顺序继续扩展：
 
-- `kubernetes/`
-  - 先做架构和最小可运行集群
-  - 再逐步进入多节点、应用部署和运维
-
 - `terraform/`
   - 学基础设施即代码
   - 学 provider、resource、module、state、plan / apply
+  - 当前建议先按 `terraform/ROADMAP.md` 展开一条完整主线
+
+- `kubernetes/`
+  - 等 `terraform/` 主线建立后，再进入集群与应用编排
+  - 先做架构和最小可运行集群
+  - 再逐步进入多节点、应用部署和运维
 
 ## 当前推荐入口
 
 - `ansible/README.md`
 - `ansible/ROADMAP.md`
+- `terraform/ROADMAP.md`
