@@ -32,7 +32,7 @@
 ## 建议顺序
 
 ```text
-main.tf -> terraform init -> terraform apply -auto-approve -> terraform state list -> terraform show -> terraform plan -var='container_message=changed outside of lifecycle' -> terraform destroy -auto-approve
+main.tf -> terraform init -> terraform apply -auto-approve -> terraform state list -> terraform show -> terraform plan -var='container_message=changed outside of lifecycle' -> terraform plan -var='environment_name=blue' -var='published_port=18086' -> terraform apply -auto-approve -var='environment_name=blue' -var='published_port=18086' -> terraform destroy -auto-approve
 ```
 
 ## 这一章会碰到哪些 lifecycle 选项
@@ -59,6 +59,10 @@ main.tf -> terraform init -> terraform apply -auto-approve -> terraform state li
   - 看到 state 里资源的详细属性
 - 修改 `container_message` 后重新 `terraform plan`
   - 观察 `ignore_changes = [env]` 的效果
+- 修改 `environment_name` 后重新 `terraform plan`
+  - 观察容器名变化如何导致“替换资源”
+  - 再理解 `create_before_destroy = true` 为什么是一个生命周期规则
+  - 这一章建议同时再改一个新端口，避免新旧容器争抢同一个宿主机端口
 
 ## 关于 `prevent_destroy`
 
@@ -95,6 +99,127 @@ Terraform 会知道：
 - 配置里 `env` 和 state 里记录的值不一样了
 
 但因为这项属性被显式忽略，所以 plan 不会把它当成必须修正的变更。
+
+## 关于 `create_before_destroy`
+
+这一章除了“忽略变化”的例子，还建议你再做一个“触发替换”的例子：
+
+```bash
+terraform plan -var='environment_name=blue' -var='published_port=18086'
+```
+
+这里要额外强调一句：
+
+- 这条命令是为了做一个最小实验
+- 用来观察 lifecycle 行为
+- 不是推荐的长期配置方式
+
+也就是说，这里的 `-var` 更像：
+
+- 临时覆盖
+- 教学探针
+
+而不是日常项目里主要的配置入口。
+
+在更真实的 Terraform 项目里，通常更推荐：
+
+- 把不同环境的值放进：
+  - `terraform.tfvars`
+  - `dev.tfvars`
+  - `prod.tfvars`
+  - 或更明确的环境目录结构
+- 然后让命令负责：
+  - `plan`
+  - `apply`
+  - `destroy`
+
+也就是把“配置”放回文件里，而不是长期依赖命令行参数。
+
+这里的关键不是 `environment_name` 这个名字本身，
+而是它会影响：
+
+- `local.container_name = "${var.project_name}-${var.environment_name}"`
+
+所以一旦 `environment_name` 变了，
+容器的：
+
+- `name`
+
+也会跟着变。
+
+对当前这个 Docker 容器资源来说，`name` 这类字段通常不能原地修改，
+Terraform 会倾向于把它判断成：
+
+- 旧资源销毁
+- 新资源创建
+
+但这里还有一个现实限制：
+
+- 旧容器已经占用了：
+  - `0.0.0.0:18085`
+- 如果你只改名字，不改端口
+  - 新容器也还是想占 `18085`
+  - 那么即使 Terraform 想“先创建新容器，再销毁旧容器”
+  - Docker 也会因为端口冲突直接报错
+
+所以这一章要真正看到：
+
+- `create_before_destroy = true`
+
+的成功路径，更合适的实验方式是：
+
+- 同时改 `environment_name`
+- 也改 `published_port`
+
+例如：
+
+```bash
+terraform apply -auto-approve -var='environment_name=blue' -var='published_port=18086'
+```
+
+这时你就能把：
+
+- `ignore_changes`
+- `create_before_destroy`
+
+这两个生命周期选项区别开：
+
+- `ignore_changes`
+  - 控制“某些字段变化先忽略”
+- `create_before_destroy`
+  - 控制“如果已经决定要替换资源，替换顺序怎么安排”
+
+也可以顺手再记一句：
+
+- 不能只改一个“会触发替换”的字段，
+  就指望 `create_before_destroy` 总能成功
+- 如果新旧资源在外部世界里根本不能共存
+  - 例如两个容器不能同时绑定同一个宿主机端口
+  - 那么“先创建再销毁”仍然可能失败
+
+## 关于 destroy 命令是否继续带 `-var`
+
+这一章里不建议把 `destroy` 也写成一长串带 `-var` 的命令。
+
+更合适的收尾方式是：
+
+```bash
+terraform destroy -auto-approve
+```
+
+原因是：
+
+- 这一章要强调的是：
+  - Terraform 通过 `state` 记录当前受管理对象
+- 所以销毁阶段更适合直接观察：
+  - Terraform 如何基于当前 state 删除资源
+
+也就是说：
+
+- 替换实验时，`apply` 需要带上那组 `-var`
+  - 因为你要主动把配置切到另一种目标状态
+- 但销毁阶段，这一章不需要再把同一串 `-var` 重复一遍
+  - 否则会把重点从 “state 的作用” 带偏成 “命令行参数怎么重复传”
 
 ## 完成标准
 
