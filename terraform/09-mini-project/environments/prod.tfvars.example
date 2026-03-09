@@ -1,0 +1,5 @@
+project_name    = "terraform-mini-site"
+environment_name = "prod"
+published_port  = 18102
+site_title      = "Terraform Mini Site (PROD)"
+site_message    = "hello from the prod environment"
