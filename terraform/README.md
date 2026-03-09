@@ -11,5 +11,6 @@
 - `terraform/03-variables-outputs-locals/README.md`
 - `terraform/04-functions-and-expressions/README.md`
 - `terraform/05-state-and-lifecycle/README.md`
+- `terraform/06-data-sources-and-dependencies/README.md`
 
 目前这条主线刚开始搭建，建议先完成 `00-prestart`，把安装、验证和基础命令习惯理清楚，再进入后续章节。
