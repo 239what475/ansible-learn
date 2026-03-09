@@ -26,6 +26,7 @@
 
 - `01-architecture-and-core-concepts`
   - 结合这套三节点实验环境认识 control plane / worker
+  - 认识 `kube-apiserver`、`etcd`、`scheduler`、`controller-manager`
   - 认识 `Pod`、`Deployment`、`Service`
   - 先把对象模型和架构图理清楚
 
