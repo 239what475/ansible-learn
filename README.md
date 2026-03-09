@@ -18,6 +18,7 @@
 
 - `ansible/README.md`
 - `ansible/ROADMAP.md`
+- `terraform/README.md`
 - `terraform/ROADMAP.md`
 
 ## 当前目录结构
