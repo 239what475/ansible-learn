@@ -78,6 +78,8 @@ kubectl get nodes
 - `kubectl get nodes` 里出现 `3` 个节点
 - 其中 `minikube` 是 `control-plane`
 - 另外两个节点也已经是 `Ready`
+- 在 `kubectl get nodes` 的 `ROLES` 一列里，这两个节点通常会显示 `<none>`
+- 这不表示它们不是 worker，只是说明它们没有额外的 `worker` 角色标签
 
 ## 常用命令
 
@@ -105,7 +107,8 @@ minikube delete
 - `minikube status` 正常
 - `kubectl get nodes` 能看到 `3` 个节点
 - `minikube` 节点角色是 `control-plane`
-- 另外 `2` 个 worker 也都是 `Ready`
+- 另外 `2` 个节点也都是 `Ready`
+- 这两个节点承担 `worker` 角色，但 `ROLES` 一列通常显示 `<none>`
 
 ## 参考
 

@@ -23,7 +23,8 @@ kubectl.md -> minikube.md -> 后续 Kubernetes 章节
 - `kubectl get nodes` 可以正常执行
 - `kubectl get nodes` 里已经能看到 `3` 个节点
 - `minikube` 是 `control-plane`
-- 另外 `2` 个 worker 也已经是 `Ready`
+- 另外 `2` 个节点也已经是 `Ready`
+- 这两个节点在这套实验环境里承担 `worker` 角色，但在 `ROLES` 一列里通常会显示 `<none>`
 - 你已经知道后续实验默认基于本机 `minikube` 三节点集群继续
 
 ## 运行方式
