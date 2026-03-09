@@ -45,4 +45,4 @@ ansible-playbook ping.yml
 
 - 当前仓库更适合用 `uv pip install ansible`，不急着用 `uv add ansible`
 - `.venv/` 是本地产物，不需要提交到 Git
-- 建议在仓库根目录执行这些命令，这样 `.venv` 会落在仓库根目录
+- 建议在 `ansible/` 根目录执行这些命令，这样 `.venv` 会落在 `ansible/.venv`

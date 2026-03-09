@@ -15,7 +15,7 @@
 ## 使用前提
 
 下面的命令默认都在 `14-become-and-privilege-escalation` 目录中执行。
-如果你当前还在仓库根目录，先执行：
+如果你当前还在 `ansible/` 根目录，先执行：
 
 ```bash
 cd 14-become-and-privilege-escalation

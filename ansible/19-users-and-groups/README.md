@@ -15,7 +15,7 @@
 ## 使用前提
 
 下面的命令默认都在 `19-users-and-groups` 目录中执行。
-如果你当前还在仓库根目录，先执行：
+如果你当前还在 `ansible/` 根目录，先执行：
 
 ```bash
 cd 19-users-and-groups
