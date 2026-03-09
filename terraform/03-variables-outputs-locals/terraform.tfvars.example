@@ -1,0 +1,12 @@
+# 这一份文件只是示例模板。
+# 如果你想让 Terraform 自动加载它，通常要先复制成：
+# - `terraform.tfvars`
+#
+# 当然你也可以不复制，直接显式指定：
+# - `terraform plan -var-file=terraform.tfvars.example`
+# - `terraform apply -var-file=terraform.tfvars.example`
+
+project_name     = "terraform-demo-from-tfvars"
+environment_name = "test"
+container_port   = 18082
+base_message     = "managed by tfvars"
