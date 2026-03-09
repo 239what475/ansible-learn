@@ -6,6 +6,14 @@
 - 再学会模块、环境拆分和项目组织
 - 最后把 `Terraform` 和 `Ansible` 串起来，形成更完整的自动化链路
 
+## 当前状态
+
+- 这条基础主线已经完成 `00 ~ 10`
+- 当前实现主要基于：
+  - 前半段用 `Docker` 建立 Terraform 核心模型直觉
+  - 后半段继续用 `Docker` 和本地文件交接，把 `Terraform + Ansible` 串起来
+- 也就是说，这条主线目前还没有切到 `Incus`，后续如果需要更贴近真实节点的实验，再单独扩展
+
 ## 建议顺序
 
 - `00-prestart`
@@ -46,34 +54,36 @@
   - 学 `data`
   - 学依赖关系
   - 学引用其他资源和已有资源
-  - 可以开始引入更接近真实主机的场景
+  - 继续把资源图和依赖关系看清楚
 
 - `07-modules`
   - 学模块拆分
   - 学输入输出
   - 学模块复用
-  - 从这一阶段开始，可以逐步引入 `Incus`
+  - 继续使用本地可控实验环境，重点放在模块结构本身
 
 - `08-environments-and-tfvars`
   - 学环境拆分
   - 学 `tfvars`
   - 学目录组织
-  - 用 `Incus` 做更真实的多环境实验更合适
+  - 用不同环境文件驱动同一份配置
 
 - `09-mini-project`
   - 做一个完整的 `Terraform` 小项目
   - 把前面的概念串起来
-  - 优先考虑 `Incus` 这种更贴近真实节点的实验环境
+  - 当前实现使用 `Docker + module + templatefile`
 
 - `10-terraform-and-ansible`
   - 学 `Terraform` 和 `Ansible` 的分工
   - 学如何把资源输出交给 `Ansible`
   - 为后续 `Kubernetes` 主线做准备
-  - 这一章建议直接使用 `Incus + Ansible`
+  - 当前实现是 `Terraform` 生成交接文件，`Ansible` 本地消费这些文件
 
 ## 当前建议
 
 - 先从 `00-prestart` 开始
 - 前几章先不绑定具体云厂商
-- `00 ~ 05` 优先用 `Docker` 做本地实验，把 `Terraform` 的通用模型学清楚
-- `06 ~ 10` 再逐步引入 `Incus`，把资源创建和主机级场景接起来
+- 当前 `00 ~ 10` 已经足够完成一轮 `Terraform` 基础学习
+- 如果后面继续扩展，可以考虑两条方向：
+  - 引入 `Incus` 或云 provider，补“更真实资源环境”
+  - 直接进入 `Kubernetes` 主线，把 `Terraform + Ansible + K8s` 串起来

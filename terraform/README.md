@@ -2,7 +2,7 @@
 
 这是 `sre-tools-learn` 仓库里的 `Terraform` 学习主线。
 
-当前阶段先从下面两个入口开始：
+当前这条主线已经完成 `00 ~ 10` 的基础阶段，可以按顺序学习：
 
 - `terraform/ROADMAP.md`
 - `terraform/00-prestart/README.md`
@@ -17,4 +17,4 @@
 - `terraform/09-mini-project/README.md`
 - `terraform/10-terraform-and-ansible/README.md`
 
-目前这条主线刚开始搭建，建议先完成 `00-prestart`，把安装、验证和基础命令习惯理清楚，再进入后续章节。
+建议先完成 `00-prestart`，把安装、验证和基础命令习惯理清楚，再顺着 `01 ~ 10` 往下走。
