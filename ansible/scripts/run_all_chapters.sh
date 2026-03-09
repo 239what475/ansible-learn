@@ -6,7 +6,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ANSIBLE_PLAYBOOK_BIN="$ROOT/.venv/bin/ansible-playbook"
+REPO_ROOT="$(cd "$ROOT/.." && pwd)"
+ANSIBLE_PLAYBOOK_BIN="$REPO_ROOT/.venv/bin/ansible-playbook"
 CLEANUP_BIN="$ROOT/scripts/cleanup_lab.sh"
 
 LOG_FILE="${TMPDIR:-/tmp}/ansible_chapters_validate.log"
@@ -14,7 +15,7 @@ SUMMARY_FILE="${TMPDIR:-/tmp}/ansible_chapters_validate_summary.txt"
 
 if [[ ! -x "$ANSIBLE_PLAYBOOK_BIN" ]]; then
   echo "ERROR: 未找到可执行的 ansible-playbook: $ANSIBLE_PLAYBOOK_BIN" >&2
-  echo "请先在 ansible/ 目录下重建虚拟环境并安装 Ansible。" >&2
+  echo "请先在仓库根目录重建 .venv 并安装 Ansible。" >&2
   exit 1
 fi
 

@@ -14,10 +14,10 @@
 ## Git 忽略约定
 - 优先在对应子目录放置局部 `.gitignore`，避免子目录根部 `.gitignore` 过大。
 - `ansible/.gitignore` 只保留本工具主线通用的忽略项。
-- 不提交本地运行产物，例如 `.venv/`、`.uv-cache/`、`.ansible/` 以及用户复制出来的本地配置文件。
+- 不提交本地运行产物，例如根目录 `.venv/`、`.uv-cache/`、`.ansible/` 以及用户复制出来的本地配置文件。
 
 ## 环境约定
-- 当前 `Ansible` 主线默认使用 `uv` 和本地 `ansible/.venv`。
+- 当前 `Ansible` 主线默认使用 `uv` 和仓库根目录下的 `.venv`。
 - 优先提供可直接配合 `uv run` 使用的命令。
 - 不在现有 `uv + Ansible` 已足够的前提下引入额外复杂工具。
 

@@ -23,7 +23,7 @@ terraform {
       # - `docker`：provider 名称
       # 它不是 Terraform 核心自带的 HashiCorp 官方 provider，
       # 而是 Terraform Registry 上常见的第三方 Docker provider。
-      source  = "kreuzwerker/docker"
+      source = "kreuzwerker/docker"
 
       # `~>` 不是简单的“大于”。
       # 它表示“限制在一个兼容范围内升级”。
@@ -68,7 +68,7 @@ resource "docker_image" "nginx" {
 # - 后半段 `hello_terraform` 是这份配置里给它起的本地名字
 # 后面引用它时，就会写成 `docker_container.hello_terraform.xxx`
 resource "docker_container" "hello_terraform" {
-  name  = "hello-terraform"
+  name = "hello-terraform"
 
   # `docker_image.nginx.image_id` 不是字符串，也不是像 Ansible 那样的 magic variable。
   # 它是 Terraform 的“资源属性引用”写法：

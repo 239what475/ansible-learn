@@ -1,24 +1,27 @@
 # 用 uv 安装 Ansible
 
-这一节只做三件事：创建 `.venv`、安装 `Ansible`、确认命令能运行。
+这一节只做三件事：创建仓库根目录下的 `.venv`、安装 `Ansible`、确认命令能运行。
 
 ## 步骤
 
-如果当前目录还没有 `.venv`，先创建：
+建议先回到仓库根目录，再创建虚拟环境：
 
 ```bash
-uv venv
+cd ..
+uv venv .venv
 ```
 
 把 `Ansible` 安装到当前虚拟环境：
 
 ```bash
+cd ..
 uv pip install ansible
 ```
 
 验证安装结果：
 
 ```bash
+cd ..
 uv run python --version
 uv run ansible --version
 uv run ansible-playbook --version
@@ -36,7 +39,7 @@ uv run ansible-playbook ping.yml
 如果你更习惯手动激活环境，也可以：
 
 ```bash
-source .venv/bin/activate
+source ../.venv/bin/activate
 ansible --version
 ansible-playbook ping.yml
 ```
@@ -45,4 +48,4 @@ ansible-playbook ping.yml
 
 - 当前仓库更适合用 `uv pip install ansible`，不急着用 `uv add ansible`
 - `.venv/` 是本地产物，不需要提交到 Git
-- 建议在 `ansible/` 根目录执行这些命令，这样 `.venv` 会落在 `ansible/.venv`
+- 当前仓库把虚拟环境统一放在仓库根目录 `.venv`

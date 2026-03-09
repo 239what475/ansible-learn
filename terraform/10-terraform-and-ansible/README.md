@@ -54,7 +54,7 @@ terraform init
         -> terraform output
 
 cd ansible
-        -> ../../../ansible/.venv/bin/ansible-playbook playbooks/consume_terraform.yml
+        -> ../../../.venv/bin/ansible-playbook playbooks/consume_terraform.yml
 
 cd ..
         -> terraform destroy -auto-approve -var-file=terraform.tfvars.example
