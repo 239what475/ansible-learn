@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ANSIBLE_PLAYBOOK_BIN="$ROOT/.venv/bin/ansible-playbook"
+CLEANUP_BIN="$ROOT/scripts/cleanup_lab.sh"
 
 LOG_FILE="${TMPDIR:-/tmp}/ansible_chapters_validate.log"
 SUMMARY_FILE="${TMPDIR:-/tmp}/ansible_chapters_validate_summary.txt"
@@ -17,8 +18,19 @@ if [[ ! -x "$ANSIBLE_PLAYBOOK_BIN" ]]; then
   exit 1
 fi
 
+if [[ ! -x "$CLEANUP_BIN" ]]; then
+  echo "ERROR: 未找到可执行的清理脚本: $CLEANUP_BIN" >&2
+  exit 1
+fi
+
 : > "$LOG_FILE"
 : > "$SUMMARY_FILE"
+
+echo "[cleanup] reset incus lab nodes" >> "$SUMMARY_FILE"
+(
+  cd "$ROOT"
+  "$CLEANUP_BIN"
+) >> "$LOG_FILE" 2>&1
 
 run_prepare() {
   local dir="$1"
