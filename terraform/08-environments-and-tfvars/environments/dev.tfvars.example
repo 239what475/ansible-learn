@@ -1,0 +1,4 @@
+project_name      = "terraform-envs-demo"
+environment_name  = "dev"
+published_port    = 18091
+container_message = "hello from dev tfvars"
