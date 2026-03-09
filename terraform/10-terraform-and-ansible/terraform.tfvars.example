@@ -1,0 +1,5 @@
+project_name    = "terraform-ansible-demo"
+environment_name = "dev"
+published_port  = 18110
+site_title      = "Terraform + Ansible Demo"
+site_message    = "this page is created by Terraform and handed to Ansible"
