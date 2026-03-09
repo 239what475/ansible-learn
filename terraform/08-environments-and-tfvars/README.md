@@ -34,13 +34,24 @@
 ## 建议顺序
 
 ```text
-main.tf -> environments/dev.tfvars.example -> environments/prod.tfvars.example -> terraform init -> terraform plan -out=dev.tfplan -var-file=environments/dev.tfvars.example -> terraform show dev.tfplan -> terraform apply -auto-approve dev.tfplan -> terraform output -> terraform destroy -auto-approve -var-file=environments/dev.tfvars.example
+main.tf -> environments/dev.tfvars.example -> environments/prod.tfvars.example 
+
+terraform init 
+        -> terraform plan -out=dev.tfplan -var-file=environments/dev.tfvars.example 
+        -> terraform show dev.tfplan 
+        -> terraform apply -auto-approve dev.tfplan 
+        -> terraform output 
+        -> terraform destroy -auto-approve
 ```
 
 然后再重复一遍 `prod`：
 
 ```text
-terraform plan -out=prod.tfplan -var-file=environments/prod.tfvars.example -> terraform show prod.tfplan -> terraform apply -auto-approve prod.tfplan -> terraform output -> terraform destroy -auto-approve -var-file=environments/prod.tfvars.example
+terraform plan -out=prod.tfplan -var-file=environments/prod.tfvars.example 
+        -> terraform show prod.tfplan 
+        -> terraform apply -auto-approve prod.tfplan 
+        -> terraform output 
+        -> terraform destroy -auto-approve
 ```
 
 ## 这一章你会看到什么
