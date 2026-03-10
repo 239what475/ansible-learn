@@ -35,6 +35,7 @@
 - `kubectl get nodes` 正常
 - 你已经会创建和观察 `Deployment`、`Service`
 - 你已经知道 `Namespace`、`Pod`、`Service` 的基本关系
+- 如果要练 `Ingress`，先执行 `minikube addons enable ingress`
 
 ## 推荐顺序
 

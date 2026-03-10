@@ -93,6 +93,25 @@ kubectl create deployment web-demo --image=nginx:1.27
 kubectl rollout status deployment/web-demo --timeout=180s
 ```
 
+这里的 `rollout` 可以先理解成：
+
+- `Deployment` 把你声明的期望状态
+- 真正落实成一批 Pod
+- 并让这批 Pod 逐步进入可用状态的过程
+
+所以这条命令的意思不是“再创建一个对象”，而是：
+
+- 看 `web-demo` 这次发布是不是已经完成
+- 等到它对应的 Pod 真的起来并可用
+- 最多等 `180` 秒
+
+如果超时了，通常说明：
+
+- Pod 还没成功启动
+- 镜像拉取失败
+- 探针没通过
+- 或者副本还没达到期望状态
+
 再观察：
 
 ```bash
