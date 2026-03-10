@@ -1,0 +1,6 @@
+apiVersion: v2
+name: web-demo
+description: A minimal nginx Helm chart for Kubernetes learning
+type: application
+version: 0.1.0
+appVersion: "1.27"
