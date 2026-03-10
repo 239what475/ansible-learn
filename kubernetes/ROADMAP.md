@@ -8,8 +8,11 @@
 
 ## 当前状态
 
-- 这条主线刚开始搭建
-- 当前先补 `00-prestart`
+- 这条主线已经有可继续学习的前置和基础章节
+- 当前已补：
+  - `00-prestart`
+  - `01-architecture-and-core-concepts`
+  - `02-kubectl-basics`
 - 实验环境默认优先考虑：
   - 本机安装 `kubectl`
   - 本机安装 `minikube`
@@ -79,7 +82,8 @@
 ## 当前建议
 
 - 先从 `00-prestart` 开始
-- `00` 先把本机 `kubectl` 和 `minikube` 准备好，并拿到 `1 control-plane + 2 worker` 的本地集群
+- `00` 完成后，继续 `01`
+- `01` 完成后，继续 `02`
 - 当前阶段先不要急着上 `Argo CD`
 - 更合理的顺序是：
   - 先学 `Kubernetes`
