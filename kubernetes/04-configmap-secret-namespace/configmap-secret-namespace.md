@@ -33,12 +33,12 @@ kubectl get ns
 
 仓库里对应的实际文件是：
 
-- `kubernetes/04-configmap-secret-namespace/app-demo-namespace.yaml`
+- `./app-demo-namespace.yaml`
 
 你也可以直接：
 
 ```bash
-kubectl apply -f kubernetes/04-configmap-secret-namespace/app-demo-namespace.yaml
+kubectl apply -f ./app-demo-namespace.yaml
 ```
 
 这里先建立一个直觉：
@@ -94,7 +94,7 @@ data:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/04-configmap-secret-namespace/app-config.yaml`
+- `./app-config.yaml`
 
 这里最重要的是：
 
@@ -149,7 +149,7 @@ data:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/04-configmap-secret-namespace/app-secret.yaml`
+- `./app-secret.yaml`
 
 这里先记住两个点：
 
@@ -169,7 +169,7 @@ kubectl create deployment env-demo -n app-demo --image=busybox:1.36 -- sleep 360
 如果你想直接用仓库里的完整示例，可以用：
 
 ```bash
-kubectl apply -f kubernetes/04-configmap-secret-namespace/env-demo-deployment.yaml
+kubectl apply -f ./env-demo-deployment.yaml
 kubectl rollout status deployment/env-demo -n app-demo --timeout=180s
 ```
 

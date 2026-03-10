@@ -60,12 +60,12 @@ spec:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/03-workloads-and-services/pod-demo.yaml`
+- `./pod-demo.yaml`
 
 你也可以直接：
 
 ```bash
-kubectl apply -f kubernetes/03-workloads-and-services/pod-demo.yaml
+kubectl apply -f ./pod-demo.yaml
 ```
 
 这里先建立两个直觉：
@@ -125,12 +125,12 @@ spec:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/03-workloads-and-services/web-demo-deployment.yaml`
+- `./web-demo-deployment.yaml`
 
 你也可以直接：
 
 ```bash
-kubectl apply -f kubernetes/03-workloads-and-services/web-demo-deployment.yaml
+kubectl apply -f ./web-demo-deployment.yaml
 ```
 
 这里最重要的是关系要看清楚：
@@ -195,12 +195,12 @@ spec:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/03-workloads-and-services/web-demo-service.yaml`
+- `./web-demo-service.yaml`
 
 你也可以直接：
 
 ```bash
-kubectl apply -f kubernetes/03-workloads-and-services/web-demo-service.yaml
+kubectl apply -f ./web-demo-service.yaml
 ```
 
 这里最重要的是 `selector`：

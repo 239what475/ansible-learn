@@ -18,12 +18,12 @@
 
 仓库里对应的实际文件是：
 
-- `kubernetes/05-ingress-and-storage/edge-demo-namespace.yaml`
+- `./edge-demo-namespace.yaml`
 
 先创建它：
 
 ```bash
-kubectl apply -f kubernetes/05-ingress-and-storage/edge-demo-namespace.yaml
+kubectl apply -f ./edge-demo-namespace.yaml
 ```
 
 ## 1. 先看当前集群能力
@@ -91,12 +91,12 @@ spec:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/05-ingress-and-storage/data-demo-pvc.yaml`
+- `./data-demo-pvc.yaml`
 
 把这个 YAML 应用到集群：
 
 ```bash
-kubectl apply -f kubernetes/05-ingress-and-storage/data-demo-pvc.yaml
+kubectl apply -f ./data-demo-pvc.yaml
 ```
 
 再观察：
@@ -146,7 +146,7 @@ spec:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/05-ingress-and-storage/storage-demo-pod.yaml`
+- `./storage-demo-pod.yaml`
 
 应用后观察：
 
@@ -208,9 +208,9 @@ kubectl get pods -n ingress-nginx
 现在先准备一个后端应用：
 
 ```bash
-kubectl apply -f kubernetes/05-ingress-and-storage/web-demo-deployment.yaml
+kubectl apply -f ./web-demo-deployment.yaml
 kubectl rollout status deployment/web-demo -n edge-demo --timeout=180s
-kubectl apply -f kubernetes/05-ingress-and-storage/web-demo-service.yaml
+kubectl apply -f ./web-demo-service.yaml
 ```
 
 再观察：
@@ -255,7 +255,7 @@ spec:
 
 仓库里对应的实际文件是：
 
-- `kubernetes/05-ingress-and-storage/web-demo-ingress.yaml`
+- `./web-demo-ingress.yaml`
 
 应用后观察：
 
