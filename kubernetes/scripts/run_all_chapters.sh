@@ -38,7 +38,8 @@ for dir in \
   06-rbac-and-serviceaccount \
   07-helm \
   08-cluster-operations-and-troubleshooting \
-  09-rebuild-and-repeatability
+  09-rebuild-and-repeatability \
+  10-probes-resources-and-hpa
 do
   if ! run_chapter "$dir"; then
     fail_count=$((fail_count + 1))

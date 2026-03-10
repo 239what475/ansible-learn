@@ -4,11 +4,11 @@
 
 - 先理解 `Kubernetes` 的基本架构和对象模型
 - 再学会用 `kubectl`、`Helm` 和标准 `Kubernetes` 组件做实验
-- 最后把 `Terraform + Ansible + Kubernetes` 串起来
+- 再进入探针、资源限制和自动扩缩容
 
 ## 当前进度
 
-- 当前已经有十章基础内容：
+- 当前已经有十一章基础内容：
   - `00-prestart`
   - `01-architecture-and-core-concepts`
   - `02-kubectl-basics`
@@ -19,6 +19,7 @@
   - `07-helm`
   - `08-cluster-operations-and-troubleshooting`
   - `09-rebuild-and-repeatability`
+  - `10-probes-resources-and-hpa`
 - 实验环境默认优先考虑：
   - 本机安装 `kubectl`
   - 本机安装 `minikube`
@@ -79,16 +80,15 @@
   - 重置并重建 `minikube`
   - 观察环境回收和重复实验
 
-- `10-terraform-ansible-and-kubernetes`
-  - 把前面两条主线串起来
-  - 用 `Terraform` 建实验资源
-  - 用 `Ansible` 做节点初始化
-  - 再把应用交给 `Kubernetes`
+- `10-probes-resources-and-hpa`
+  - 学 `startupProbe` / `readinessProbe` / `livenessProbe`
+  - 学 `requests` / `limits`
+  - 学 `metrics-server`
+  - 学 `HPA`
 
 ## 当前阶段建议
 
 - 如果你还没准备好集群，就从 `00-prestart` 开始
 - 如果集群已经可用，就按 `01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10` 继续
 - 当前阶段先把基础命令和核心对象练熟
-- 当前阶段先不要急着上 `Argo CD`
-- 更合理的顺序是：先学 `Kubernetes`，再学 `Helm`，最后再进入 `Argo CD`
+- 当前阶段已经可以继续往更完整的运行时治理内容推进

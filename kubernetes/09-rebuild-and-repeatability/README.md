@@ -41,7 +41,7 @@
 ## 推荐顺序
 
 ```text
-rebuild-and-repeatability.md -> kubernetes/10-terraform-ansible-and-kubernetes
+rebuild-and-repeatability.md -> kubernetes/10-probes-resources-and-hpa
 ```
 
 ## 完成标准

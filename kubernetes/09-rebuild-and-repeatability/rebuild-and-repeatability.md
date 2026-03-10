@@ -215,10 +215,10 @@ minikube delete -p repeat-demo-profile
 
 下一节进入：
 
-- `kubernetes/10-terraform-ansible-and-kubernetes`
+- `kubernetes/10-probes-resources-and-hpa`
 
-也就是开始把前面几条主线真正串起来：
+也就是开始把前面学过的部署工具真正串起来：
 
-- 用 `Terraform` 管实验资源
-- 用 `Ansible` 管初始化
-- 用 `Kubernetes` 管应用
+- 学探针和资源限制
+- 学 `metrics-server`
+- 学 `HPA` 自动扩缩容
