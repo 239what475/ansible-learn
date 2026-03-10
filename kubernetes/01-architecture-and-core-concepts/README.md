@@ -1,4 +1,4 @@
-# 01: Architecture and Core Concepts
+# 01: 架构与核心概念
 
 这一节先不急着写业务 YAML，先把 `Kubernetes` 最核心的结构理清楚。
 
