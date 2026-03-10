@@ -8,10 +8,11 @@
 
 ## 当前进度
 
-- 当前已经有三章基础内容：
+- 当前已经有四章基础内容：
   - `00-prestart`
   - `01-architecture-and-core-concepts`
   - `02-kubectl-basics`
+  - `03-workloads-and-services`
 - 实验环境默认优先考虑：
   - 本机安装 `kubectl`
   - 本机安装 `minikube`
@@ -81,7 +82,7 @@
 ## 当前阶段建议
 
 - 如果你还没准备好集群，就从 `00-prestart` 开始
-- 如果集群已经可用，就按 `01 -> 02 -> 03` 继续
+- 如果集群已经可用，就按 `01 -> 02 -> 03 -> 04` 继续
 - 当前阶段先把基础命令和核心对象练熟
 - 当前阶段先不要急着上 `Argo CD`
 - 更合理的顺序是：先学 `Kubernetes`，再学 `Helm`，最后再进入 `Argo CD`
