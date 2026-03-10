@@ -12,6 +12,7 @@
 ## 文件
 
 - `kubectl-basics.md`：这一节的主体说明和练习路径
+- `verify.sh`：验证 `get`、`describe`、`logs`、`exec` 这条命令路径
 
 ## 前提
 

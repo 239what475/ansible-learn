@@ -13,6 +13,7 @@
 
 - `kubectl.md`：安装本机 `kubectl`
 - `minikube.md`：安装 `minikube`、启动本地 `1 control-plane + 2 worker` 实验集群并验证
+- `verify.sh`：验证这一章的前置环境和三节点集群状态
 
 ## 推荐顺序
 

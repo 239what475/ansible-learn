@@ -6,7 +6,7 @@
 
 - `ansible/`：从 `00` 到 `30` 的 `Ansible` 教程与 mini project
 - `terraform/`：从 `00` 到 `10` 的 `Terraform` 基础主线
-- `kubernetes/`：当前已有 `00 ~ 04` 的基础章节，采用 `kubectl + minikube` 路线，并直接准备本地三节点实验集群
+- `kubernetes/`：当前已有 `00 ~ 05` 的基础章节，采用 `kubectl + minikube` 路线，并直接准备本地三节点实验集群
 
 后续计划继续补充：
 
@@ -27,7 +27,7 @@
 
 - `ansible/`：当前最完整的一条学习主线，包含实验章节和脚本
 - `terraform/`：已经完成一条 `00 ~ 10` 的基础学习主线
-- `kubernetes/`：当前已有 `00 ~ 04` 的基础章节，默认使用本地三节点 `minikube` 集群
+- `kubernetes/`：当前已有 `00 ~ 05` 的基础章节，默认使用本地三节点 `minikube` 集群
 - `ROADMAP.md`：仓库级路线说明
 - `AGENTS.md`：仓库级约定
 

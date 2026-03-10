@@ -31,6 +31,16 @@ kubectl create namespace app-demo
 kubectl get ns
 ```
 
+仓库里对应的实际文件是：
+
+- `kubernetes/04-configmap-secret-namespace/app-demo-namespace.yaml`
+
+你也可以直接：
+
+```bash
+kubectl apply -f kubernetes/04-configmap-secret-namespace/app-demo-namespace.yaml
+```
+
 这里先建立一个直觉：
 
 - 很多 Kubernetes 资源都是“按 namespace 隔离”的
@@ -81,6 +91,10 @@ data:
   APP_MODE: demo
   APP_COLOR: blue
 ```
+
+仓库里对应的实际文件是：
+
+- `kubernetes/04-configmap-secret-namespace/app-config.yaml`
 
 这里最重要的是：
 
@@ -133,6 +147,10 @@ data:
   DB_PASS: czNjcjN0
 ```
 
+仓库里对应的实际文件是：
+
+- `kubernetes/04-configmap-secret-namespace/app-secret.yaml`
+
 这里先记住两个点：
 
 - `Secret` 比 `ConfigMap` 更适合存敏感信息
@@ -148,13 +166,14 @@ data:
 kubectl create deployment env-demo -n app-demo --image=busybox:1.36 -- sleep 3600
 ```
 
-再把 `ConfigMap` 和 `Secret` 注进这个 `Deployment`：
+如果你想直接用仓库里的完整示例，可以用：
 
 ```bash
-kubectl set env deployment/env-demo -n app-demo --from=configmap/app-config
-kubectl set env deployment/env-demo -n app-demo --from=secret/app-secret
+kubectl apply -f kubernetes/04-configmap-secret-namespace/env-demo-deployment.yaml
 kubectl rollout status deployment/env-demo -n app-demo --timeout=180s
 ```
+
+这个文件里已经把 `ConfigMap` 和 `Secret` 作为环境变量来源写好了。
 
 再观察：
 

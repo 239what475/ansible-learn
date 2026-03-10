@@ -12,6 +12,11 @@
 ## 文件
 
 - `configmap-secret-namespace.md`：这一节的主体说明和练习路径
+- `app-demo-namespace.yaml`：`Namespace` 示例
+- `app-config.yaml`：`ConfigMap` 示例
+- `app-secret.yaml`：`Secret` 示例
+- `env-demo-deployment.yaml`：读取配置和敏感信息的 `Deployment` 示例
+- `verify.sh`：验证 `Namespace`、`ConfigMap`、`Secret` 和应用读取配置
 
 ## 前提
 

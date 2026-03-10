@@ -12,6 +12,10 @@
 ## 文件
 
 - `workloads-and-services.md`：这一节的主体说明和练习路径
+- `pod-demo.yaml`：裸 `Pod` 示例
+- `web-demo-deployment.yaml`：`Deployment` 示例
+- `web-demo-service.yaml`：`Service` 示例
+- `verify.sh`：验证 `Pod`、`Deployment`、`Service`、扩容和滚动更新
 
 ## 前提
 

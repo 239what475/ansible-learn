@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storage-demo
+  namespace: edge-demo
+spec:
+  containers:
+    - name: storage-demo
+      image: busybox:1.36
+      command: ["sh", "-c", "echo storage-ok > /data/hello.txt && sleep 3600"]
+      volumeMounts:
+        - name: app-data
+          mountPath: /data
+  volumes:
+    - name: app-data
+      persistentVolumeClaim:
+        claimName: data-demo
