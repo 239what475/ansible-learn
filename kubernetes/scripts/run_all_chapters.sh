@@ -36,7 +36,8 @@ for dir in \
   04-configmap-secret-namespace \
   05-ingress-and-storage \
   06-rbac-and-serviceaccount \
-  07-helm
+  07-helm \
+  08-cluster-operations-and-troubleshooting
 do
   if ! run_chapter "$dir"; then
     fail_count=$((fail_count + 1))

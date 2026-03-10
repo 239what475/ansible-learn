@@ -2,7 +2,7 @@
 
 这是 `sre-tools-learn` 仓库里的 `Kubernetes` 学习主线。
 
-当前这条主线已经有 `00 ~ 07` 八个基础章节，默认实验环境是本地三节点 `minikube` 集群：
+当前这条主线已经有 `00 ~ 08` 九个基础章节，默认实验环境是本地三节点 `minikube` 集群：
 
 - `1 control-plane`
 - `2 worker`
@@ -18,6 +18,7 @@
 - `kubernetes/05-ingress-and-storage/README.md`
 - `kubernetes/06-rbac-and-serviceaccount/README.md`
 - `kubernetes/07-helm/README.md`
+- `kubernetes/08-cluster-operations-and-troubleshooting/README.md`
 - `kubernetes/scripts/run_all_chapters.sh`
 
 ## 建议顺序
@@ -38,10 +39,12 @@
   - 再把 `ServiceAccount`、`Role`、`RoleBinding` 和最小权限思路串起来
 - `07-helm`
   - 再把 `chart`、`release`、`values` 和 `helm upgrade --install` 串起来
+- `08-cluster-operations-and-troubleshooting`
+  - 再把观察、事件、坏发布排查和回滚恢复串起来
 
 ## 当前阶段建议
 
-- 先把 `00 ~ 07` 走顺
+- 先把 `00 ~ 08` 走顺
 - 需要做整体验证时，可以执行 `kubernetes/scripts/run_all_chapters.sh`
 - 当前阶段先不要急着跳到 `Argo CD`
-- 下一步更合理的目标是 `08-cluster-operations-and-troubleshooting`
+- 下一步更合理的目标是 `09-rebuild-and-repeatability`
